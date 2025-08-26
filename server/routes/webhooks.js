@@ -1,5 +1,5 @@
 import express from 'express';
-import { Webhook } from 'svix';
+import crypto from 'crypto';
 import User from '../models/User.js';
 
 const router = express.Router();
@@ -15,18 +15,53 @@ router.post('/clerk-webhook', express.raw({ type: 'application/json' }), async (
   const headers = req.headers;
   const payload = req.body;
 
-  // Verify webhook signature
-  const wh = new Webhook(WEBHOOK_SECRET);
-  let evt;
+  // Verify webhook signature using crypto
+  const svix_id = headers['svix-id'];
+  const svix_timestamp = headers['svix-timestamp'];
+  const svix_signature = headers['svix-signature'];
 
-  try {
-    evt = wh.verify(payload, headers);
-  } catch (err) {
-    console.error('Webhook verification failed:', err.message);
+  if (!svix_id || !svix_timestamp || !svix_signature) {
+    return res.status(400).json({ error: 'Missing svix headers' });
+  }
+
+  const body = payload.toString();
+  const secret = WEBHOOK_SECRET.split('_')[1]; // Remove 'whsec_' prefix
+  const secretBytes = Buffer.from(secret, 'base64');
+  
+  const signedPayload = `${svix_id}.${svix_timestamp}.${body}`;
+  const expectedSignature = crypto
+    .createHmac('sha256', secretBytes)
+    .update(signedPayload)
+    .digest('base64');
+
+  const signatures = svix_signature.split(' ');
+  let isValid = false;
+  
+  for (const sig of signatures) {
+    const [version, signature] = sig.split(',');
+    if (version === 'v1') {
+      if (crypto.timingSafeEqual(
+        Buffer.from(signature, 'base64'),
+        Buffer.from(expectedSignature, 'base64')
+      )) {
+        isValid = true;
+        break;
+      }
+    }
+  }
+
+  if (!isValid) {
     return res.status(400).json({ error: 'Invalid signature' });
   }
 
-  const { id, type, data } = evt;
+  let evt;
+  try {
+    evt = JSON.parse(body);
+  } catch (err) {
+    return res.status(400).json({ error: 'Invalid JSON' });
+  }
+
+  const { type, data } = evt;
 
   try {
     switch (type) {
