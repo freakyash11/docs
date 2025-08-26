@@ -23,13 +23,14 @@ export default function TextEditor() {
   const [quill, setQuill] = useState()
 
   useEffect(() => {
-    const s = io("http://localhost:3001")
-    setSocket(s)
+  const backendUrl = process.env.REACT_APP_BACKEND_URL || "http://localhost:3001"
+  const s = io(backendUrl)
+  setSocket(s)
 
-    return () => {
-      s.disconnect()
-    }
-  }, [])
+  return () => {
+    s.disconnect()
+  }
+}, [])
 
   useEffect(() => {
     if (socket == null || quill == null) return
