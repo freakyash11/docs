@@ -47,4 +47,4 @@ userSchema.index({ googleId: 1 });
 
 const User = mongoose.model('User', userSchema);
 
-module.exports = User;
+export default User;
