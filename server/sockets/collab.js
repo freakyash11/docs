@@ -8,7 +8,8 @@ function setupSocket(server) {
     cors: {
       origin: [
       "http://localhost:3000",
-      "https://docsy-client.vercel.app"
+      "https://docsy-client.vercel.app",
+      "/https:\/\/.*\.vercel\.app$/"
     ],
       methods: ["GET", "POST"],
     },
