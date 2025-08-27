@@ -7,11 +7,13 @@ function setupSocket(server) {
   const io = new Server(server, {
     cors: {
       origin: [
-      "http://localhost:3000",
-      "https://docsy-client.vercel.app",
-      "/https:\/\/.*\.vercel\.app$/"
-    ],
+        "http://localhost:3000",
+        "https://docsy-client.vercel.app",
+        new RegExp('^https://.*\\.vercel\\.app$')  // Proper RegExp to match any Vercel subdomain (e.g., your full frontend URL)
+      ],
       methods: ["GET", "POST"],
+      allowedHeaders: ["Content-Type", "Authorization"],  // Add if using auth headers
+      credentials: true  // Enable if your app uses cookies/sessions; otherwise, set to false
     },
   })
 
