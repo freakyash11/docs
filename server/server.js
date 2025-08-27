@@ -13,7 +13,7 @@ const server = http.createServer(app)
 app.use(cors({
   origin: [
     "http://localhost:3000",
-    "https://docsy-client.vercel.app/"
+    "https://docsy-client.vercel.app"
   ],
   credentials: true
 }))
