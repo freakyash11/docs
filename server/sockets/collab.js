@@ -6,7 +6,10 @@ const defaultValue = ""
 function setupSocket(server) {
   const io = new Server(server, {
     cors: {
-      origin: "http://localhost:3000",
+      origin: [
+      "http://localhost:3000",
+      "https://docsy-client.vercel.app"
+    ],
       methods: ["GET", "POST"],
     },
   })
