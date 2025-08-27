@@ -25,7 +25,7 @@ await connectDB()
 setupSocket(server)
 app.use('/api/webhooks', webhookRoutes);
 // Basic health check route
-app.get('/health', (req, res) => {
+app.get('/', (req, res) => {
   res.json({ status: 'Server is running' })
 })
 
