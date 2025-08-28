@@ -21,15 +21,15 @@
     {
       "source": "/socket.io/(.*)",
       "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },  // Use your specific frontend URL(s) instead of "*" for security, e.g., "https://docsy-client-h5u3zl9lo-yashs-projects-3c6e6861.vercel.app"
+        { "key": "Access-Control-Allow-Origin", "value": "*" },  
         { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
         { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" },
-        { "key": "Access-Control-Allow-Credentials", "value": "true" },  // Match your socket file's `credentials: true`
-        { "key": "Access-Control-Max-Age", "value": "86400" }  // Cache preflights for 24 hours
+        { "key": "Access-Control-Allow-Credentials", "value": "true" },  
+        { "key": "Access-Control-Max-Age", "value": "86400" } 
       ]
     },
     {
-      "source": "/api/(.*)",  // If your backend has other non-Socket.IO API routes (e.g., for documents)
+      "source": "/api/(.*)",  
       "headers": [
         { "key": "Access-Control-Allow-Origin", "value": "*" },
         { "key": "Access-Control-Allow-Methods", "value": "GET, POST, PUT, DELETE, OPTIONS" },
