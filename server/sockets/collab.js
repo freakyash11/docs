@@ -17,7 +17,16 @@ function setupSocket(server) {
     },
   })
 
-  io.on("connection", socket => {
+  io.on("connection", async socket => {
+    const token = socket.handshake.auth.token;
+  
+  try {
+    const payload = await clerkClient.verifyToken(token);
+    socket.userId = payload.sub;
+  } catch (error) {
+    socket.disconnect();
+    return;
+  }
     socket.on("get-document", async documentId => {
       const document = await findOrCreateDocument(documentId)
       socket.join(documentId)

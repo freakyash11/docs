@@ -3,6 +3,7 @@ import Quill from "quill"
 import "quill/dist/quill.snow.css"
 import { io } from "socket.io-client"
 import { useParams } from "react-router-dom"
+import { useAuth } from '@clerk/clerk-react'
 
 const SAVE_INTERVAL_MS = 2000
 const TOOLBAR_OPTIONS = [
@@ -18,19 +19,35 @@ const TOOLBAR_OPTIONS = [
 ]
 
 export default function TextEditor() {
+  const { getToken } = useAuth();
   const { id: documentId } = useParams()
   const [socket, setSocket] = useState()
   const [quill, setQuill] = useState()
 
   useEffect(() => {
-  const backendUrl = process.env.REACT_APP_BACKEND_URL || "http://localhost:3001"
-  const s = io(backendUrl)
-  setSocket(s)
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || "http://localhost:3001"
+    
+    const connectSocket = async () => {
+      try {
+        const token = await getToken();
+        const s = io(backendUrl, {
+          auth: { token }
+        });
+        setSocket(s);
+      } catch (error) {
+        console.error('Failed to get token or connect socket:', error);
+      }
+    };
+   
+    connectSocket();
 
-  return () => {
-    s.disconnect()
-  }
-}, [])
+    // Cleanup function
+    return () => {
+      if (socket) {
+        socket.disconnect();
+      }
+    };
+  }, [getToken]) // Add getToken as dependency
 
   useEffect(() => {
     if (socket == null || quill == null) return
@@ -96,5 +113,6 @@ export default function TextEditor() {
     q.setText("Loading...")
     setQuill(q)
   }, [])
+  
   return <div className="container" ref={wrapperRef}></div>
-} 
+}

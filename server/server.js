@@ -4,6 +4,7 @@ import setupSocket from './sockets/collab.js'
 import connectDB from './config/db.js'
 import 'dotenv/config';
 import webhookRoutes from './routes/webhooks.js';
+import authRoutes from './routes/auth.js';
 
 
 const app = express()
@@ -13,6 +14,7 @@ app.use(express.json())
 
 // MongoDB connection
 await connectDB()
+app.use('/api/auth', authRoutes);
 // Setup Socket.IO with the HTTP server
 setupSocket(server)
 app.use('/api/webhooks', webhookRoutes);
