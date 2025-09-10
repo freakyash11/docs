@@ -9,7 +9,7 @@ import { v4 as uuidV4 } from "uuid";
 import { ClerkProvider } from "@clerk/clerk-react";
 import AuthPage from "./components/AuthPage";
 import ProtectedRoute from "./components/ProtectedRoute";
-
+//comment
 // Wrapper component to generate UUID only when the root route is rendered
 const NewDocumentRedirect = () => {
   return <Navigate to={`/documents/${uuidV4()}`} replace />;
