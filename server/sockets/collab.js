@@ -15,6 +15,7 @@ function setupSocket(server) {
       allowedHeaders: ["Content-Type", "Authorization"],  // Add if using auth headers
       credentials: true  // Enable if your app uses cookies/sessions; otherwise, set to false
     },
+    path: '/socket.io'
   })
 
   io.on("connection", async socket => {

@@ -17,7 +17,7 @@ const NewDocumentRedirect = () => {
 
 function App() {
   return (
-    <ClerkProvider publishableKey={import.meta.env.REACT_APP_CLERK_PUBLISHABLE_KEY}>
+    <ClerkProvider publishableKey={process.env.REACT_APP_CLERK_PUBLISHABLE_KEY}>
     <Router>
       <Routes>
         <Route path="/" element={<NewDocumentRedirect />} />
