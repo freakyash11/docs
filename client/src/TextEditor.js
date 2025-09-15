@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useState, useRef } from "react"
 import Quill from "quill"
 import "quill/dist/quill.snow.css"
 import { io } from "socket.io-client"
@@ -23,32 +23,46 @@ export default function TextEditor() {
   const { id: documentId } = useParams()
   const [socket, setSocket] = useState()
   const [quill, setQuill] = useState()
+  const socketRef = useRef(null);
 
-  useEffect(() => {
-    const backendUrl = process.env.REACT_APP_BACKEND_URL || "http://localhost:3001"
-    
-    const connectSocket = async () => {
-      try {
-        const token = await getToken();
-        const s = io(backendUrl, {
-          auth: { token }
-        });
-        setSocket(s);
-      } catch (error) {
-        console.error('Failed to get token or connect socket:', error);
-      }
-    };
-   
-    connectSocket();
 
-    // Cleanup function
-    return () => {
-      if (socket) {
-        socket.disconnect();
-      }
-    };
-  }, [getToken]) // Add getToken as dependency
+useEffect(() => {
+  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
+  
+  const connectSocket = async () => {
+    try {
+      const token = await getToken();  // Assumes this is from Clerk's useAuth hook
+      const s = io(backendUrl, {
+        auth: { token },  // Passes Clerk JWT for server verification
+        transports: process.env.NODE_ENV === 'production' ? ['websocket'] : ['polling', 'websocket'],  // WS-only in prod to fix SID issues on Render
+        secure: true,  // Enforce HTTPS for prod
+        timeout: 20000,  // Allow time for Render proxy
+        reconnection: true,  // Auto-reconnect on drops
+        reconnectionAttempts: 5
+      });
+      
+      // Optional: Listen for connect error to log specifics
+      s.on('connect_error', (err) => {
+        console.error('Socket connect error:', err.message);
+      });
+      
+      socketRef.current = s;  // Store in ref for reliable cleanup
+      setSocket(s);  // Still update state for component use
+    } catch (error) {
+      console.error('Failed to get token or connect socket:', error);
+    }
+  };
+  
+  connectSocket();
 
+  // Cleanup: Always disconnect the ref-tracked socket
+  return () => {
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;  // Clear ref to avoid stale refs
+    }
+  };
+}, [getToken]);
   useEffect(() => {
     if (socket == null || quill == null) return
 
