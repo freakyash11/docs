@@ -17,7 +17,9 @@ function setupSocket(server) {
     },
     path: '/socket.io'
   })
-
+  io.engine.on('connection_error', (err) => {
+  console.log('Socket.IO error:', err.message || err);
+});
   io.on("connection", async socket => {
     const token = socket.handshake.auth.token;
   
