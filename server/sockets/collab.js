@@ -1,6 +1,6 @@
 import { Server } from 'socket.io';
 import Document from '../models/Document.js';
-import { createClerkClient } from '@clerk/backend';  // Updated import for latest Clerk SDK
+import { verifyToken } from '@clerk/backend';  // Import the standalone verifyToken function
 
 const defaultValue = "";
 
@@ -30,8 +30,9 @@ function setupSocket(server) {
     console.log('Handshake auth token received:', token ? 'Present' : 'Missing');
 
     try {
-      const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });  // Initialize with createClerkClient
-      const payload = await clerk.verifyToken(token);
+      const payload = await verifyToken(token, {
+        secretKey: process.env.CLERK_SECRET_KEY  // Use secretKey; alternatively, use jwtKey for networkless verification if set
+      });
       socket.userId = payload.sub;
       console.log('Authenticated user:', socket.userId);
     } catch (error) {
