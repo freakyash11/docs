@@ -1,4 +1,4 @@
-import { UserButton, useUser } from '@clerk/react';
+import { UserButton, useUser } from '@clerk/clerk-react';
 
 export default function UserProfileHeader() {
   const { user, isSignedIn } = useUser();
