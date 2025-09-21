@@ -1,8 +1,6 @@
 import express from 'express';
 import http from 'http';
-import { Server } from 'socket.io';  // Add this import for Socket.IO
-import { createAdapter } from '@socket.io/redis-adapter';  // Add for Redis adapter
-import { Redis } from 'ioredis';  // Add for Redis client (supports Render's rediss://)
+import { Redis } from 'ioredis';  // Keep Redis import for graceful shutdown
 import setupSocket from './sockets/collab.js';
 import connectDB from './config/db.js';
 import 'dotenv/config';
@@ -22,23 +20,9 @@ app.use('/api/auth', authRoutes);
 // Redis Setup (for sharing Socket.IO sessions/SIDs)
 const redis = new Redis(process.env.REDIS_URL);  // REDIS_URL from Render env vars
 
-// Socket.IO Setup with Redis Adapter
-const io = new Server(server, {
-  cors: {
-    origin: process.env.NODE_ENV === 'production' ? 'https://docsy-client.vercel.app/' : 'http://localhost:3000',  // Adjust to your frontend URL
-    methods: ['GET', 'POST'],
-    credentials: true
-  },
-  cookie: { secure: true, sameSite: 'lax' },
-  pingInterval: 10000,  
-  pingTimeout: 30000 
-});
-
-// Attach Redis adapter to share SIDs (fixes "Session ID unknown" and enables polling/WS seamlessly)
-io.adapter(createAdapter(redis, redis.duplicate()));
-
-// Pass io to your setupSocket function (assuming it handles events/connections)
-setupSocket(io);  // Changed to pass io instead of server
+// Socket.IO Setup - now handled entirely in collab.js
+const io = setupSocket(server, redis);  // Pass both server and redis instance
+console.log('Socket.IO setup completed');
 
 app.use('/api/webhooks', webhookRoutes);
 

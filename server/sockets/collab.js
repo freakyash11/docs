@@ -1,23 +1,31 @@
 import { Server } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';  // Redis adapter
 import Document from '../models/Document.js';
 import { verifyToken } from '@clerk/backend';  // Import the standalone verifyToken function
 
 const defaultValue = "";
 
-function setupSocket(server) {
+function setupSocket(server, redis) {
+  // Create Socket.IO instance with all configuration
   const io = new Server(server, {
     cors: {
-      origin: [
+      origin: process.env.NODE_ENV === 'production' ? 'https://docsy-client.vercel.app' : [
         "http://localhost:3000",
         "https://docsy-client.vercel.app",
         new RegExp('^https://.*\\.vercel\\.app$')
       ],
       methods: ["GET", "POST"],
       allowedHeaders: ["Content-Type", "Authorization"],
-      credentials: true
+      credentials: true,
     },
-    path: '/socket.io'
+    path: '/socket.io',
+    cookie: { secure: true, sameSite: 'lax' },
+    pingInterval: 10000,  
+    pingTimeout: 30000 
   });
+
+  // Attach Redis adapter to share SIDs (fixes "Session ID unknown" and enables polling/WS seamlessly)
+  io.adapter(createAdapter(redis, redis.duplicate()));
 
   io.engine.on('connection_error', (err) => {
     console.log('Socket.IO error:', err.message || err);
@@ -28,6 +36,8 @@ function setupSocket(server) {
 
     const token = socket.handshake.auth.token;
     console.log('Handshake auth token received:', token ? 'Present' : 'Missing');
+
+    let documentId; // Declare documentId in the connection scope
 
     try {
       const payload = await verifyToken(token, {
@@ -45,7 +55,8 @@ function setupSocket(server) {
       console.log('Disconnected:', socket.id, 'Reason:', reason);
     });
 
-    socket.on("get-document", async documentId => {
+    socket.on("get-document", async docId => {
+      documentId = docId; // Store documentId for this connection
       console.log('get-document event received for ID:', documentId, 'From user:', socket.userId);
       try {
         const document = await findOrCreateDocument(documentId);
