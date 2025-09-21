@@ -9,6 +9,7 @@ import { v4 as uuidV4 } from "uuid";
 import { ClerkProvider } from "@clerk/clerk-react";
 import AuthPage from "./components/AuthPage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Layout from "./components/Layout";
 //comment
 // Wrapper component to generate UUID only when the root route is rendered
 const NewDocumentRedirect = () => {
@@ -24,7 +25,9 @@ function App() {
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/documents/:id" element={
             <ProtectedRoute>
+              <Layout>
               <TextEditor />
+              </Layout>
             </ProtectedRoute>
           }  />
       </Routes>
