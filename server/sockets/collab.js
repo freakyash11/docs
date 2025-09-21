@@ -1,6 +1,6 @@
 import { Server } from 'socket.io';
 import Document from '../models/Document.js';
-import { clerkClient } from '@clerk/backend';  // Ensure this import if not already present (for verifyToken)
+import { createClerkClient } from '@clerk/backend';  // Updated import for latest Clerk SDK
 
 const defaultValue = "";
 
@@ -10,11 +10,11 @@ function setupSocket(server) {
       origin: [
         "http://localhost:3000",
         "https://docsy-client.vercel.app",
-        new RegExp('^https://.*\\.vercel\\.app$')  // Proper RegExp to match any Vercel subdomain (e.g., your full frontend URL)
+        new RegExp('^https://.*\\.vercel\\.app$')
       ],
       methods: ["GET", "POST"],
-      allowedHeaders: ["Content-Type", "Authorization"],  // Add if using auth headers
-      credentials: true  // Enable if your app uses cookies/sessions; otherwise, set to false
+      allowedHeaders: ["Content-Type", "Authorization"],
+      credentials: true
     },
     path: '/socket.io'
   });
@@ -24,30 +24,31 @@ function setupSocket(server) {
   });
 
   io.on("connection", async socket => {
-    console.log('New connection established:', socket.id, 'User agent:', socket.request.headers['user-agent']);  // Confirms connection
+    console.log('New connection established:', socket.id, 'User agent:', socket.request.headers['user-agent']);
 
     const token = socket.handshake.auth.token;
-    console.log('Handshake auth token received:', token ? 'Present' : 'Missing');  // Log token presence (avoid logging full token for security)
+    console.log('Handshake auth token received:', token ? 'Present' : 'Missing');
 
     try {
-      const payload = await clerkClient.verifyToken(token);
+      const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });  // Initialize with createClerkClient
+      const payload = await clerk.verifyToken(token);
       socket.userId = payload.sub;
-      console.log('Authenticated user:', socket.userId);  // Log successful auth
+      console.log('Authenticated user:', socket.userId);
     } catch (error) {
-      console.error('Auth failed for socket:', socket.id, 'Error:', error.message);  // Log auth failure
+      console.error('Auth failed for socket:', socket.id, 'Error:', error.message);
       socket.disconnect(true);
       return;
     }
 
     socket.on("disconnect", (reason) => {
-      console.log('Disconnected:', socket.id, 'Reason:', reason);  // Log disconnect reason
+      console.log('Disconnected:', socket.id, 'Reason:', reason);
     });
 
     socket.on("get-document", async documentId => {
-      console.log('get-document event received for ID:', documentId, 'From user:', socket.userId);  // Log event trigger
+      console.log('get-document event received for ID:', documentId, 'From user:', socket.userId);
       try {
         const document = await findOrCreateDocument(documentId);
-        console.log('Document loaded/created:', document._id, 'Data length:', document.data.length);  // Log document details
+        console.log('Document loaded/created:', document._id, 'Data length:', document.data.length);
         socket.join(documentId);
         socket.emit("load-document", document.data);
         console.log('Emitted load-document to socket:', socket.id);
@@ -57,7 +58,7 @@ function setupSocket(server) {
     });
 
     socket.on("send-changes", delta => {
-      console.log('send-changes received from:', socket.id, 'Delta:', JSON.stringify(delta));  // Log changes
+      console.log('send-changes received from:', socket.id, 'Delta:', JSON.stringify(delta));
       socket.broadcast.to(documentId).emit("receive-changes", delta);
       console.log('Broadcasted receive-changes to room:', documentId);
     });
