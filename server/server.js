@@ -29,7 +29,9 @@ const io = new Server(server, {
     methods: ['GET', 'POST'],
     credentials: true
   },
-  cookie: { secure: true, sameSite: 'lax' }  // Secure for HTTPS on Render
+  cookie: { secure: true, sameSite: 'lax' },
+  pingInterval: 10000,  
+  pingTimeout: 30000 
 });
 
 // Attach Redis adapter to share SIDs (fixes "Session ID unknown" and enables polling/WS seamlessly)

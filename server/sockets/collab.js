@@ -1,7 +1,8 @@
-import { Server } from 'socket.io'
-import Document from '../models/Document.js'
+import { Server } from 'socket.io';
+import Document from '../models/Document.js';
+import { clerkClient } from '@clerk/backend';  // Ensure this import if not already present (for verifyToken)
 
-const defaultValue = ""
+const defaultValue = "";
 
 function setupSocket(server) {
   const io = new Server(server, {
@@ -16,44 +17,71 @@ function setupSocket(server) {
       credentials: true  // Enable if your app uses cookies/sessions; otherwise, set to false
     },
     path: '/socket.io'
-  })
+  });
+
   io.engine.on('connection_error', (err) => {
-  console.log('Socket.IO error:', err.message || err);
-});
+    console.log('Socket.IO error:', err.message || err);
+  });
+
   io.on("connection", async socket => {
+    console.log('New connection established:', socket.id, 'User agent:', socket.request.headers['user-agent']);  // Confirms connection
+
     const token = socket.handshake.auth.token;
-  
-  try {
-    const payload = await clerkClient.verifyToken(token);
-    socket.userId = payload.sub;
-  } catch (error) {
-    socket.disconnect();
-    return;
-  }
+    console.log('Handshake auth token received:', token ? 'Present' : 'Missing');  // Log token presence (avoid logging full token for security)
+
+    try {
+      const payload = await clerkClient.verifyToken(token);
+      socket.userId = payload.sub;
+      console.log('Authenticated user:', socket.userId);  // Log successful auth
+    } catch (error) {
+      console.error('Auth failed for socket:', socket.id, 'Error:', error.message);  // Log auth failure
+      socket.disconnect(true);
+      return;
+    }
+
+    socket.on("disconnect", (reason) => {
+      console.log('Disconnected:', socket.id, 'Reason:', reason);  // Log disconnect reason
+    });
+
     socket.on("get-document", async documentId => {
-      const document = await findOrCreateDocument(documentId)
-      socket.join(documentId)
-      socket.emit("load-document", document.data)
+      console.log('get-document event received for ID:', documentId, 'From user:', socket.userId);  // Log event trigger
+      try {
+        const document = await findOrCreateDocument(documentId);
+        console.log('Document loaded/created:', document._id, 'Data length:', document.data.length);  // Log document details
+        socket.join(documentId);
+        socket.emit("load-document", document.data);
+        console.log('Emitted load-document to socket:', socket.id);
+      } catch (error) {
+        console.error('Error handling get-document:', error.message);
+      }
+    });
 
-      socket.on("send-changes", delta => {
-        socket.broadcast.to(documentId).emit("receive-changes", delta)
-      })
+    socket.on("send-changes", delta => {
+      console.log('send-changes received from:', socket.id, 'Delta:', JSON.stringify(delta));  // Log changes
+      socket.broadcast.to(documentId).emit("receive-changes", delta);
+      console.log('Broadcasted receive-changes to room:', documentId);
+    });
 
-      socket.on("save-document", async data => {
-        await Document.findByIdAndUpdate(documentId, { data })
-      })
-    })
-  })
+    socket.on("save-document", async data => {
+      console.log('save-document received from:', socket.id, 'Data length:', data.length);
+      try {
+        await Document.findByIdAndUpdate(documentId, { data });
+        console.log('Document saved:', documentId);
+      } catch (error) {
+        console.error('Error saving document:', error.message);
+      }
+    });
+  });
 
-  return io
+  return io;
 }
 
 async function findOrCreateDocument(id) {
-  if (id == null) return
+  if (id == null) return;
 
-  const document = await Document.findById(id)
-  if (document) return document
-  return await Document.create({ _id: id, data: defaultValue })
+  const document = await Document.findById(id);
+  if (document) return document;
+  return await Document.create({ _id: id, data: defaultValue });
 }
 
-export default setupSocket
+export default setupSocket;

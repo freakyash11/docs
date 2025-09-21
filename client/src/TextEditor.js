@@ -28,25 +28,30 @@ export default function TextEditor() {
 
 useEffect(() => {
   const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
-  
+  const secureUrl = backendUrl.replace(/^http:/, 'https:');
   const connectSocket = async () => {
     try {
       const token = await getToken();  // Assumes this is from Clerk's useAuth hook
       const s = io(backendUrl, {
         auth: { token },  // Passes Clerk JWT for server verification
-        transports: process.env.NODE_ENV === 'production' ? ['websocket'] : ['polling', 'websocket'],  // WS-only in prod to fix SID issues on Render
-        secure: true,  // Enforce HTTPS for prod
+        transports: ['websocket'],  // WS-only in prod to fix SID issues on Render
+        secure: true,
+        withCredentials: true,
+        path: '/socket.io/',
         timeout: 20000,  // Allow time for Render proxy
         reconnection: true,  // Auto-reconnect on drops
         reconnectionAttempts: 5,
         forceNew: true
       });
       
+      s.on('connect', () => console.log('Socket connected successfully!'));
       // Optional: Listen for connect error to log specifics
       s.on('connect_error', (err) => {
         console.error('Socket connect error:', err.message);
       });
-      
+      s.on('disconnect', (reason) => console.log('Disconnect reason:', reason));
+      s.on('error', (err) => console.error('Socket error:', err));
+      s.on('documentLoaded', () => console.log('Initial data received!'));
       socketRef.current = s;  // Store in ref for reliable cleanup
       setSocket(s);  // Still update state for component use
     } catch (error) {
