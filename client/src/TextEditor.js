@@ -38,7 +38,8 @@ useEffect(() => {
         secure: true,  // Enforce HTTPS for prod
         timeout: 20000,  // Allow time for Render proxy
         reconnection: true,  // Auto-reconnect on drops
-        reconnectionAttempts: 5
+        reconnectionAttempts: 5,
+        forceNew: true
       });
       
       // Optional: Listen for connect error to log specifics
@@ -62,7 +63,7 @@ useEffect(() => {
       socketRef.current = null;  // Clear ref to avoid stale refs
     }
   };
-}, [getToken]);
+}, [useAuth]);
   useEffect(() => {
     if (socket == null || quill == null) return
 
