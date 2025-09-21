@@ -25,7 +25,7 @@ const redis = new Redis(process.env.REDIS_URL);  // REDIS_URL from Render env va
 // Socket.IO Setup with Redis Adapter
 const io = new Server(server, {
   cors: {
-    origin: process.env.NODE_ENV === 'production' ? '*' : 'http://localhost:3000',  // Adjust to your frontend URL
+    origin: process.env.NODE_ENV === 'production' ? 'https://docsy-client.vercel.app/' : 'http://localhost:3000',  // Adjust to your frontend URL
     methods: ['GET', 'POST'],
     credentials: true
   },
