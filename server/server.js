@@ -12,6 +12,17 @@ import documentRoutes from './routes/documentRoutes.js';
 const app = express();
 const server = http.createServer(app);
 
+app.use(cors({
+  origin: [
+    'http://localhost:3000',  // Local dev
+    'https://docsy-client.vercel.app',  // Production frontend
+    new RegExp('^https://.*\\.vercel\\.app$')  // Vercel previews/deployments
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],  // Include OPTIONS for preflight
+  allowedHeaders: ['Content-Type', 'Authorization'],  // Allow auth headers
+  credentials: true  // If using cookies/sessions
+}));
+
 // Middleware
 app.use(express.json());
 
