@@ -15,7 +15,10 @@ export default function UserProfileHeader() {
       borderBottom: '1px solid #e9ecef'
     }}>
       <div>
-        <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Docsy</h2>
+        <h2 style={{ margin: 0, fontSize: '1.5rem', cursor: 'pointer' }}
+             onClick={() => window.location.href = '/dashboard'}>
+             Docsy
+        </h2>
       </div>
       
       <div style={{ 

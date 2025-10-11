@@ -6,6 +6,8 @@ import connectDB from './config/db.js';
 import 'dotenv/config';
 import webhookRoutes from './routes/webhooks.js';
 import authRoutes from './routes/auth.js';
+import documentRoutes from './routes/documentRoutes.js';
+
 
 const app = express();
 const server = http.createServer(app);
@@ -25,7 +27,7 @@ const io = setupSocket(server, redis);  // Pass both server and redis instance
 console.log('Socket.IO setup completed');
 
 app.use('/api/webhooks', webhookRoutes);
-
+app.use('/api/documents', documentRoutes);
 // Basic health check route
 app.get('/', (req, res) => {
   res.json({ status: 'Server is running' });

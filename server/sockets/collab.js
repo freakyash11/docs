@@ -89,12 +89,19 @@ function setupSocket(server, redis) {
   return io;
 }
 
-async function findOrCreateDocument(id) {
+
+async function findOrCreateDocument(id, userId) {
   if (id == null) return;
 
   const document = await Document.findById(id);
   if (document) return document;
-  return await Document.create({ _id: id, data: defaultValue });
+  
+  return await Document.create({ 
+    _id: id, 
+    data: {},
+    ownerId: userId,
+    lastModifiedBy: userId
+  });
 }
 
 export default setupSocket;
