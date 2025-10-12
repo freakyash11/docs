@@ -15,7 +15,7 @@ export default function Dashboard() {
   // Fetch user's documents
   const fetchDocuments = async () => {
     try {
-      const token = await getToken();
+      const token = await getToken({ leewayInSeconds: 10 });
       const response = await fetch(`${backendUrl}/api/documents`, {
         headers: {
           'Authorization': `Bearer ${token}`

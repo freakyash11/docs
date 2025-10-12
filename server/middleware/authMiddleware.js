@@ -9,14 +9,16 @@ const authMiddleware = async (req, res, next) => {
   const token = authHeader.split(' ')[1];
   try {
     const payload = await verifyToken(token, {
-      jwtKey: process.env.CLERK_JWT_VERIFICATION_KEY,  // Local verification
+      jwtKey: process.env.CLERK_JWT_VERIFICATION_KEY,  // Local dev verification
       authorizedParties: ['https://docsy-client.vercel.app', 'http://localhost:3000'],  // Match frontend origins
-      secretKey: process.env.CLERK_SECRET_KEY  // Fallback if jwtKey fails
+      issuer: 'https://clerk.dev',  // Dev issuer; check jwt.io if different (e.g., 'https://your-instance.clerk.accounts.dev')
+      clockSkewInSec: 10  // Grace for timing issues
     });
-    req.userId = payload.sub;  // Attach user ID for route use
+    console.log('Dev token verified. Payload:', payload);  // Log for debug
+    req.userId = payload.sub;
     next();
   } catch (error) {
-    console.error('Token verification error:', error.message);
+    console.error('Dev token error:', error.message, 'Token snippet:', token.substring(0, 20) + '...');
     res.status(401).json({ error: 'Invalid or expired token' });
   }
 };
