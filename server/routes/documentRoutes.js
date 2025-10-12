@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticateUser } from '../middleware/auth.js';
+import authMiddleware from '../middlewares/authMiddleware.js';
 import {
   createDocument,
   getUserDocuments,
@@ -11,7 +11,7 @@ import {
 const router = express.Router();
 
 // All routes require authentication
-router.use(authenticateUser);
+router.use(authMiddleware);
 
 // POST /api/documents - Create new document
 router.post('/', createDocument);

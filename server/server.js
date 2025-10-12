@@ -4,6 +4,7 @@ import { Redis } from 'ioredis';  // Keep Redis import for graceful shutdown
 import setupSocket from './sockets/collab.js';
 import connectDB from './config/db.js';
 import 'dotenv/config';
+import cors from 'cors';
 import webhookRoutes from './routes/webhooks.js';
 import authRoutes from './routes/auth.js';
 import documentRoutes from './routes/documentRoutes.js';
