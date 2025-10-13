@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 // Create new document
 export const createDocument = async (req, res) => {
   try {
+    console.log('createDocument called - userId:', req.user?._id, 'Body:', req.body);  // Log input
     const { title } = req.body;
     
     const document = new Document({
@@ -14,6 +15,7 @@ export const createDocument = async (req, res) => {
     });
     
     await document.save();
+    console.log('Document created:', document._id);  // Log success
     
     res.status(201).json({
       id: document._id,
@@ -23,7 +25,7 @@ export const createDocument = async (req, res) => {
       ownerId: document.ownerId
     });
   } catch (error) {
-    console.error('Create document error:', error);
+    console.error('Create document detailed error:', error.message, 'Stack:', error.stack);  // Detailed log
     res.status(500).json({ error: 'Failed to create document' });
   }
 };
@@ -31,6 +33,7 @@ export const createDocument = async (req, res) => {
 // Get user's documents (owned or collaborator)
 export const getUserDocuments = async (req, res) => {
   try {
+    console.log('getUserDocuments called - userId:', req.user?._id);  // Log input
     const userId = req.user._id;
     
     const documents = await Document.find({
@@ -42,6 +45,8 @@ export const getUserDocuments = async (req, res) => {
     .populate('ownerId', 'name email')
     .populate('collaborators.userId', 'name email')
     .sort({ updatedAt: -1 });
+    
+    console.log('Documents fetched:', documents.length);  // Log result count
     
     const formattedDocs = documents.map(doc => ({
       id: doc._id,
@@ -56,7 +61,7 @@ export const getUserDocuments = async (req, res) => {
     
     res.json({ documents: formattedDocs });
   } catch (error) {
-    console.error('Get documents error:', error);
+    console.error('Get documents detailed error:', error.message, 'Stack:', error.stack);  // Detailed log
     res.status(500).json({ error: 'Failed to fetch documents' });
   }
 };
@@ -64,6 +69,7 @@ export const getUserDocuments = async (req, res) => {
 // Get single document by ID
 export const getDocument = async (req, res) => {
   try {
+    console.log('getDocument called - id:', req.params.id, 'userId:', req.user?._id);  // Log input
     const { id } = req.params;
     const userId = req.user._id;
     
@@ -89,6 +95,8 @@ export const getDocument = async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
     
+    console.log('Document fetched:', document._id);  // Log success
+    
     res.json({
       id: document._id,
       title: document.title,
@@ -105,7 +113,7 @@ export const getDocument = async (req, res) => {
       updatedAt: document.updatedAt
     });
   } catch (error) {
-    console.error('Get document error:', error);
+    console.error('Get document detailed error:', error.message, 'Stack:', error.stack);  // Detailed log
     res.status(500).json({ error: 'Failed to fetch document' });
   }
 };
@@ -113,6 +121,7 @@ export const getDocument = async (req, res) => {
 // Update document metadata
 export const updateDocument = async (req, res) => {
   try {
+    console.log('updateDocument called - id:', req.params.id, 'userId:', req.user?._id, 'Body:', req.body);  // Log input
     const { id } = req.params;
     const { title, isPublic, collaborators } = req.body;
     const userId = req.user._id;
@@ -144,6 +153,8 @@ export const updateDocument = async (req, res) => {
       { new: true }
     ).populate('ownerId', 'name email');
     
+    console.log('Document updated:', updatedDocument._id);  // Log success
+    
     res.json({
       id: updatedDocument._id,
       title: updatedDocument.title,
@@ -152,7 +163,7 @@ export const updateDocument = async (req, res) => {
       updatedAt: updatedDocument.updatedAt
     });
   } catch (error) {
-    console.error('Update document error:', error);
+    console.error('Update document detailed error:', error.message, 'Stack:', error.stack);  // Detailed log
     res.status(500).json({ error: 'Failed to update document' });
   }
 };
@@ -160,6 +171,7 @@ export const updateDocument = async (req, res) => {
 // Delete document
 export const deleteDocument = async (req, res) => {
   try {
+    console.log('deleteDocument called - id:', req.params.id, 'userId:', req.user?._id);  // Log input
     const { id } = req.params;
     const userId = req.user._id;
     
@@ -179,10 +191,11 @@ export const deleteDocument = async (req, res) => {
     }
     
     await Document.findByIdAndDelete(id);
+    console.log('Document deleted:', id);  // Log success
     
     res.json({ message: 'Document deleted successfully' });
   } catch (error) {
-    console.error('Delete document error:', error);
+    console.error('Delete document detailed error:', error.message, 'Stack:', error.stack);  // Detailed log
     res.status(500).json({ error: 'Failed to delete document' });
   }
 };
