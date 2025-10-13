@@ -7,6 +7,7 @@ const authMiddleware = async (req, res, next) => {
   }
 
   const token = authHeader.split(' ')[1];
+  console.log('Received token:', token);
   try {
     const payload = await verifyToken(token, {
       jwtKey: process.env.CLERK_JWT_VERIFICATION_KEY,  // Local if set
