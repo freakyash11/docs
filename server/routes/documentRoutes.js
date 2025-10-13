@@ -17,8 +17,9 @@ router.use(authMiddleware);
 router.post('/', createDocument);
 
 // GET /api/documents - Get user's documents
+console.log('Loading documentRoutes.js - start');
 router.get('/', getUserDocuments);
-
+console.log('Loading documentRoutes.js - end');
 // GET /api/documents/:id - Get single document
 router.get('/:id', getDocument);
 

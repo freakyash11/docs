@@ -1,6 +1,8 @@
+console.log('Loading authMiddleware.js - start');
 import { verifyToken } from '@clerk/backend';
 
 const authMiddleware = async (req, res, next) => {
+  console.log('authMiddleware called for route:', req.url);
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'No token provided' });
@@ -22,5 +24,5 @@ const authMiddleware = async (req, res, next) => {
     res.status(401).json({ error: 'Invalid or expired token' });
   }
 };
-
+console.log('Loading authMiddleware.js - end');
 export default authMiddleware;
