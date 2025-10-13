@@ -7,14 +7,13 @@ const authMiddleware = async (req, res, next) => {
   }
 
   const token = authHeader.split(' ')[1];
-  console.log('Received token:', token);
   try {
     const payload = await verifyToken(token, {
-      jwtKey: process.env.CLERK_JWT_VERIFICATION_KEY,  // Local if set
+      jwtKey: process.env.CLERK_JWT_VERIFICATION_KEY,
       authorizedParties: ['https://docsy-client.vercel.app', 'http://localhost:3000'],
-      secretKey: process.env.CLERK_SECRET_KEY,  // Fallback
-      issuer: process.env.CLERK_ISSUER,  // Dev issuer for correct key fetch
-      clockSkewInSec: 10
+      secretKey: process.env.CLERK_SECRET_KEY,
+      issuer: 'https://ethical-javelin-15.clerk.accounts.dev',  // Your specific dev issuer
+      clockSkewInSec: 60  // Increased grace for expiration (1 min)
     });
     console.log('Token verified. Payload:', payload);
     req.userId = payload.sub;
