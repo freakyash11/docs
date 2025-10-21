@@ -22,9 +22,12 @@ function setupSocket(server, redis) {
         credentials: true,
       },
       path: '/socket.io',
+      transports: ['polling', 'websocket'],  // Polling fallback for Render
       cookie: { secure: true, sameSite: 'lax' },
       pingInterval: 10000,
-      pingTimeout: 30000
+      pingTimeout: 60000,  // Increased for Render proxy
+      upgradeTimeout: 10000,
+      maxHttpBufferSize: 1e6
     });
 
     io.adapter(createAdapter(redis, redis.duplicate()));
@@ -35,32 +38,32 @@ function setupSocket(server, redis) {
     });
 
     io.on("connection", async socket => {
-  console.log('New connection established:', socket.id);
+      console.log('New connection established:', socket.id, 'Transport:', socket.conn.transport.name);
 
-  const token = socket.handshake.auth.token;
-  console.log('Handshake auth token received:', token ? 'Present' : 'Missing');
+      const token = socket.handshake.auth.token;
+      console.log('Handshake auth token received:', token ? 'Present' : 'Missing');
 
-  try {
-    const payload = await verifyToken(token, {
-      jwtKey: process.env.CLERK_JWT_VERIFICATION_KEY,  // Local JWK - no network
-      authorizedParties: ['https://docsy-client.vercel.app', 'http://localhost:3000'],
-      issuer: 'https://ethical-javelin-15.clerk.accounts.dev',  // Your dev issuer from decoded token
-      clockSkewInSec: 60  // Grace for timing
-    });
-    socket.userId = payload.sub;
-    console.log('Authenticated user:', socket.userId);
-  } catch (error) {
-    console.error('Auth failed for socket:', socket.id, 'Error:', error.message);
-    socket.disconnect(true);
-    return;
-  }
+      try {
+        const payload = await verifyToken(token, {
+          jwtKey: process.env.CLERK_JWT_VERIFICATION_KEY,
+          authorizedParties: ['https://docsy-client.vercel.app', 'http://localhost:3000'],
+          issuer: 'https://ethical-javelin-15.clerk.accounts.dev',
+          clockSkewInSec: 60
+        });
+        socket.userId = payload.sub;
+        console.log('Authenticated user:', socket.userId);
+      } catch (error) {
+        console.error('Auth failed for socket:', socket.id, 'Error:', error.message);
+        socket.disconnect(true);
+        return;
+      }
 
       socket.on("disconnect", (reason) => {
-        console.log('Disconnected:', socket.id, 'Reason:', reason);
+        console.log('Disconnected:', socket.id, 'Reason:', reason, 'Transport:', socket.conn.transport.name);
       });
 
       socket.on("get-document", async (documentId) => {
-        console.log('get-document event received for ID:', documentId, 'From user:', socket.userId);  // Log event arrival
+        console.log('get-document event received for ID:', documentId, 'From user:', socket.userId);
         try {
           if (!documentId) {
             console.log('No documentId provided - emitting error');
@@ -69,30 +72,41 @@ function setupSocket(server, redis) {
           }
 
           const document = await findOrCreateDocument(documentId);
-          console.log('Document loaded/created:', document._id, 'Data length:', document.data.length);  // Log DB result
+          console.log('Document loaded/created:', document._id, 'Data length:', document.data.length);
 
           socket.join(documentId);
           console.log('Joined room:', documentId);
 
           socket.emit("load-document", document.data);
-          console.log('Emitted load-document to socket:', socket.id);  // Log emit
+          console.log('Emitted load-document to socket:', socket.id);
         } catch (error) {
-          console.error('Error in get-document handler:', error.message, 'Stack:', error.stack);  // Detailed error log
+          console.error('Error in get-document handler:', error.message, 'Stack:', error.stack);
           socket.emit("load-document", { error: 'Failed to load document' });
         }
       });
 
-      // Other events (send-changes, save-document) - add logs if needed
       socket.on("send-changes", (delta) => {
         console.log('send-changes received from:', socket.id);
-        socket.broadcast.to(documentId).emit("receive-changes", delta);  // Note: documentId must be in scope or from room
+        // Note: documentId must be tracked per socket or from room - assume it's in scope or use socket.rooms
+        const rooms = Array.from(socket.rooms).filter(room => room !== socket.id);
+        if (rooms.length > 0) {
+          socket.broadcast.to(rooms[0]).emit("receive-changes", delta);
+        }
+        console.log('Broadcasted receive-changes to room:', rooms[0] || 'unknown');
       });
 
       socket.on("save-document", async (data) => {
         console.log('save-document received from:', socket.id);
         try {
-          await Document.findByIdAndUpdate(documentId, { data });
-          console.log('Document saved:', documentId);
+          // Assume documentId from room or pass it in event
+          const rooms = Array.from(socket.rooms).filter(room => room !== socket.id);
+          const documentId = rooms[0];
+          if (documentId) {
+            await Document.findByIdAndUpdate(documentId, { data });
+            console.log('Document saved:', documentId);
+          } else {
+            console.log('No documentId for save');
+          }
         } catch (error) {
           console.error('Error saving document:', error.message);
         }
@@ -113,7 +127,7 @@ async function findOrCreateDocument(id) {
     return null;
   }
 
-  console.log('findOrCreateDocument called with ID:', id);  // Log call
+  console.log('findOrCreateDocument called with ID:', id);
 
   const document = await Document.findById(id);
   if (document) {

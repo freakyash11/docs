@@ -38,7 +38,7 @@ export default function TextEditor() {
           path: '/socket.io/',
           timeout: 20000,  // Allow time for Render proxy
           reconnection: true,  // Auto-reconnect on drops
-          reconnectionAttempts: 5,
+          reconnectionAttempts: 10,
           forceNew: true
         });
         
@@ -50,6 +50,12 @@ export default function TextEditor() {
         s.on('disconnect', (reason) => console.log('Disconnect reason:', reason));
         s.on('error', (err) => console.error('Socket error:', err));
         s.on('documentLoaded', () => console.log('Initial data received!'));
+        s.on('connect_error', (err) => {
+  console.error('Socket connect error:', err.message, 'Transport:', err.type);  // Log type (e.g., 'TransportError')
+  if (err.type === 'TransportError' && err.description.includes('websocket')) {
+    console.log('WS failed - falling back to polling');
+  }
+});
         socketRef.current = s;  // Store in ref for reliable cleanup
         setSocket(s);  // Still update state for component use
       } catch (error) {
