@@ -25,50 +25,66 @@ export default function TextEditor() {
   const [quill, setQuill] = useState()
   const socketRef = useRef(null);
 
+  useEffect(() => {
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
+    const connectSocket = async () => {
+      try {
+        const token = await getToken();  // Assumes this is from Clerk's useAuth hook
+        const s = io(backendUrl, {
+          auth: { token },  // Passes Clerk JWT for server verification
+          transports: ['websocket'],  // WS-only in prod to fix SID issues on Render
+          secure: true,
+          withCredentials: true,
+          path: '/socket.io/',
+          timeout: 20000,  // Allow time for Render proxy
+          reconnection: true,  // Auto-reconnect on drops
+          reconnectionAttempts: 5,
+          forceNew: true
+        });
+        
+        s.on('connect', () => console.log('Socket connected successfully!'));
+        // Optional: Listen for connect error to log specifics
+        s.on('connect_error', (err) => {
+          console.error('Socket connect error:', err.message);
+        });
+        s.on('disconnect', (reason) => console.log('Disconnect reason:', reason));
+        s.on('error', (err) => console.error('Socket error:', err));
+        s.on('documentLoaded', () => console.log('Initial data received!'));
+        socketRef.current = s;  // Store in ref for reliable cleanup
+        setSocket(s);  // Still update state for component use
+      } catch (error) {
+        console.error('Failed to get token or connect socket:', error);
+      }
+    };
+    
+    connectSocket();
 
-useEffect(() => {
-  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
-  const secureUrl = backendUrl.replace(/^http:/, 'https:');
-  const connectSocket = async () => {
-    try {
-      const token = await getToken();  // Assumes this is from Clerk's useAuth hook
-      const s = io(backendUrl, {
-        auth: { token },  // Passes Clerk JWT for server verification
-        transports: ['websocket'],  // WS-only in prod to fix SID issues on Render
-        secure: true,
-        withCredentials: true,
-        path: '/socket.io/',
-        timeout: 20000,  // Allow time for Render proxy
-        reconnection: true,  // Auto-reconnect on drops
-        reconnectionAttempts: 5,
-        forceNew: true
-      });
-      
-      s.on('connect', () => console.log('Socket connected successfully!'));
-      // Optional: Listen for connect error to log specifics
-      s.on('connect_error', (err) => {
-        console.error('Socket connect error:', err.message);
-      });
-      s.on('disconnect', (reason) => console.log('Disconnect reason:', reason));
-      s.on('error', (err) => console.error('Socket error:', err));
-      s.on('documentLoaded', () => console.log('Initial data received!'));
-      socketRef.current = s;  // Store in ref for reliable cleanup
-      setSocket(s);  // Still update state for component use
-    } catch (error) {
-      console.error('Failed to get token or connect socket:', error);
-    }
-  };
-  
-  connectSocket();
+    // Cleanup: Always disconnect the ref-tracked socket
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;  // Clear ref to avoid stale refs
+      }
+    };
+  }, [useAuth]);
 
-  // Cleanup: Always disconnect the ref-tracked socket
-  return () => {
-    if (socketRef.current) {
-      socketRef.current.disconnect();
-      socketRef.current = null;  // Clear ref to avoid stale refs
-    }
-  };
-}, [useAuth]);
+  // Token refresh useEffect - add this new useEffect here, after socket connection
+  useEffect(() => {
+    if (!socket) return;
+
+    const tokenRefreshInterval = setInterval(async () => {
+      try {
+        const newToken = await getToken();
+        socket.emit('refresh-token', newToken);  // Emit to server for optional re-auth
+        console.log('Token refreshed and emitted');
+      } catch (error) {
+        console.error('Token refresh error:', error);
+      }
+    }, 30000);  // Every 30 seconds
+
+    return () => clearInterval(tokenRefreshInterval);  // Cleanup interval
+  }, [socket, getToken]);
+
   useEffect(() => {
     if (socket == null || quill == null) return
 
