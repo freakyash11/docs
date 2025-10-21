@@ -35,21 +35,25 @@ function setupSocket(server, redis) {
     });
 
     io.on("connection", async socket => {
-      console.log('New connection established:', socket.id);
+  console.log('New connection established:', socket.id);
 
-      // Auth code (keep as is)
-      const token = socket.handshake.auth.token;
-      try {
-        const payload = await verifyToken(token, {
-          // Your config
-        });
-        socket.userId = payload.sub;
-        console.log('Authenticated user:', socket.userId);
-      } catch (error) {
-        console.error('Auth failed for socket:', socket.id, 'Error:', error.message);
-        socket.disconnect(true);
-        return;
-      }
+  const token = socket.handshake.auth.token;
+  console.log('Handshake auth token received:', token ? 'Present' : 'Missing');
+
+  try {
+    const payload = await verifyToken(token, {
+      jwtKey: process.env.CLERK_JWT_VERIFICATION_KEY,  // Local JWK - no network
+      authorizedParties: ['https://docsy-client.vercel.app', 'http://localhost:3000'],
+      issuer: 'https://ethical-javelin-15.clerk.accounts.dev',  // Your dev issuer from decoded token
+      clockSkewInSec: 60  // Grace for timing
+    });
+    socket.userId = payload.sub;
+    console.log('Authenticated user:', socket.userId);
+  } catch (error) {
+    console.error('Auth failed for socket:', socket.id, 'Error:', error.message);
+    socket.disconnect(true);
+    return;
+  }
 
       socket.on("disconnect", (reason) => {
         console.log('Disconnected:', socket.id, 'Reason:', reason);
