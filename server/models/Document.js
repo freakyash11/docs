@@ -7,17 +7,17 @@ const documentSchema = new mongoose.Schema({
     default: 'Untitled Document'
   },
   data: {
-    type: Object,
+    type: mongoose.Schema.Types.Mixed,
     default: {}
   },
   ownerId: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: String,
     ref: 'User',
     required: true
   },
   collaborators: [{
     userId: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: String,
       ref: 'User'
     },
     permission: {
@@ -31,7 +31,7 @@ const documentSchema = new mongoose.Schema({
     default: false
   },
   lastModifiedBy: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: String,
     ref: 'User'
   }
 }, {
