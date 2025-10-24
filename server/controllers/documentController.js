@@ -1,20 +1,32 @@
 import Document from '../models/Document.js';
+import User from '../models/User.js';  // Import User model
 import mongoose from 'mongoose';
 
 // Create new document
 export const createDocument = async (req, res) => {
   try {
-    console.log('createDocument called - userId:', req.userId, 'Body:', req.body);  // Use req.userId
+    console.log('createDocument called - userId:', req.userId, 'Body:', req.body);
     const { title } = req.body;
     
     if (!req.userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
+    // Find or create User with clerkId
+    let user = await User.findOne({ clerkId: req.userId });
+    if (!user) {
+      user = new User({
+        clerkId: req.userId,
+        name: 'Unknown User',  // Fetch from Clerk if needed
+        email: 'unknown@example.com'
+      });
+      await user.save();
+    }
+
     const document = new Document({
       title: title || 'Untitled Document',
-      ownerId: req.userId,  // Fixed: Use req.userId from middleware, not req.user._id
-      lastModifiedBy: req.userId,  // Fixed: Use req.userId
+      ownerId: user._id,  // Use MongoDB ObjectId for ref
+      lastModifiedBy: user._id,  // ObjectId
       data: {}
     });
     
@@ -37,20 +49,27 @@ export const createDocument = async (req, res) => {
 // Get user's documents (owned or collaborator)
 export const getUserDocuments = async (req, res) => {
   try {
-    console.log('getUserDocuments called - userId:', req.userId);  // Use req.userId
-    const userId = req.userId;  // Fixed: Use req.userId
+    console.log('getUserDocuments called - userId:', req.userId);
+    const userId = req.userId;  // Clerk ID (string)
     
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
+    // Find MongoDB user ID by clerkId
+    const user = await User.findOne({ clerkId: userId });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const mongoUserId = user._id;  // ObjectId for query
+
     const documents = await Document.find({
       $or: [
-        { ownerId: userId },
-        { 'collaborators.userId': userId }
+        { ownerId: mongoUserId },
+        { 'collaborators.userId': mongoUserId }  // Assuming collaborators.userId is ObjectId
       ]
     })
-    .populate('ownerId', 'name email')
+    .populate('ownerId', 'name email')  // Now works with ObjectId ref
     .populate('collaborators.userId', 'name email')
     .sort({ updatedAt: -1 });
     
@@ -60,7 +79,7 @@ export const getUserDocuments = async (req, res) => {
       id: doc._id,
       title: doc.title,
       owner: doc.ownerId.name,
-      isOwner: doc.ownerId._id.toString() === userId.toString(),
+      isOwner: doc.ownerId._id.toString() === mongoUserId.toString(),
       collaborators: doc.collaborators.length,
       isPublic: doc.isPublic,
       createdAt: doc.createdAt,
@@ -77,14 +96,20 @@ export const getUserDocuments = async (req, res) => {
 // Get single document by ID
 export const getDocument = async (req, res) => {
   try {
-    console.log('getDocument called - id:', req.params.id, 'userId:', req.userId);  // Use req.userId
+    console.log('getDocument called - id:', req.params.id, 'userId:', req.userId);
     const { id } = req.params;
-    const userId = req.userId;  // Fixed: Use req.userId
+    const userId = req.userId;  // Clerk ID
     
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: 'Invalid document ID' });
     }
     
+    const user = await User.findOne({ clerkId: userId });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const mongoUserId = user._id;
+
     const document = await Document.findById(id)
       .populate('ownerId', 'name email')
       .populate('collaborators.userId', 'name email');
@@ -94,9 +119,9 @@ export const getDocument = async (req, res) => {
     }
     
     // Check permissions
-    const isOwner = document.ownerId._id.toString() === userId.toString();
+    const isOwner = document.ownerId._id.toString() === mongoUserId.toString();
     const isCollaborator = document.collaborators.some(
-      collab => collab.userId._id.toString() === userId.toString()
+      collab => collab.userId._id.toString() === mongoUserId.toString()
     );
     
     if (!isOwner && !isCollaborator && !document.isPublic) {
@@ -129,15 +154,21 @@ export const getDocument = async (req, res) => {
 // Update document metadata
 export const updateDocument = async (req, res) => {
   try {
-    console.log('updateDocument called - id:', req.params.id, 'userId:', req.userId, 'Body:', req.body);  // Use req.userId
+    console.log('updateDocument called - id:', req.params.id, 'userId:', req.userId, 'Body:', req.body);
     const { id } = req.params;
     const { title, isPublic, collaborators } = req.body;
-    const userId = req.userId;  // Fixed: Use req.userId
+    const userId = req.userId;  // Clerk ID
     
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: 'Invalid document ID' });
     }
     
+    const user = await User.findOne({ clerkId: userId });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const mongoUserId = user._id;
+
     const document = await Document.findById(id);
     
     if (!document) {
@@ -145,11 +176,11 @@ export const updateDocument = async (req, res) => {
     }
     
     // Only owner can update metadata
-    if (document.ownerId.toString() !== userId.toString()) {
+    if (document.ownerId.toString() !== mongoUserId.toString()) {
       return res.status(403).json({ error: 'Only owner can update document metadata' });
     }
     
-    const updateData = { lastModifiedBy: userId };
+    const updateData = { lastModifiedBy: mongoUserId };
     
     if (title !== undefined) updateData.title = title;
     if (isPublic !== undefined) updateData.isPublic = isPublic;
@@ -179,14 +210,20 @@ export const updateDocument = async (req, res) => {
 // Delete document
 export const deleteDocument = async (req, res) => {
   try {
-    console.log('deleteDocument called - id:', req.params.id, 'userId:', req.userId);  // Use req.userId
+    console.log('deleteDocument called - id:', req.params.id, 'userId:', req.userId);
     const { id } = req.params;
-    const userId = req.userId;  // Fixed: Use req.userId
+    const userId = req.userId;  // Clerk ID
     
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: 'Invalid document ID' });
     }
     
+    const user = await User.findOne({ clerkId: userId });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const mongoUserId = user._id;
+
     const document = await Document.findById(id);
     
     if (!document) {
@@ -194,7 +231,7 @@ export const deleteDocument = async (req, res) => {
     }
     
     // Only owner can delete
-    if (document.ownerId.toString() !== userId.toString()) {
+    if (document.ownerId.toString() !== mongoUserId.toString()) {
       return res.status(403).json({ error: 'Only owner can delete document' });
     }
     
