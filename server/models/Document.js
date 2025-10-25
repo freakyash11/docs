@@ -22,8 +22,8 @@ const documentSchema = new mongoose.Schema({
     },
     permission: {
       type: String,
-      enum: ['read', 'write'],
-      default: 'read'
+      enum: ['viewer', 'editor'],
+      default: 'viewer'
     }
   }],
   isPublic: {
