@@ -34,30 +34,42 @@ export default function TextEditor() {
 
   // Function to update document title via PATCH API
   const updateDocumentTitle = async (newTitle) => {
-    try {
-      setSaveStatus("saving")
-      const token = await getToken()
-      
-      const response = await fetch(`${backendUrl}/documents/${documentId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ title: newTitle })
-      })
+  console.log('🔵 Frontend: Attempting to update title to:', newTitle)
+  console.log('🔵 Document ID:', documentId)
+  console.log('🔵 Backend URL:', backendUrl)
+  
+  try {
+    setSaveStatus("saving")
+    const token = await getToken()
+    console.log('🔵 Token obtained:', token ? 'Yes' : 'No')
+    
+    const url = `${backendUrl}/documents/${documentId}`
+    console.log('🔵 Full URL:', url)
+    
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ title: newTitle })
+    })
 
-      if (!response.ok) {
-        throw new Error('Failed to update title')
-      }
+    console.log('🔵 Response status:', response.status)
+    const data = await response.json()
+    console.log('🔵 Response data:', data)
 
-      setSaveStatus("saved")
-      setTimeout(() => setSaveStatus(""), 2000)
-    } catch (error) {
-      console.error('Error updating document title:', error)
-      setSaveStatus("")
+    if (!response.ok) {
+      throw new Error('Failed to update title')
     }
+
+    setSaveStatus("saved")
+    setTimeout(() => setSaveStatus(""), 2000)
+  } catch (error) {
+    console.error('🔴 Error updating document title:', error)
+    setSaveStatus("")
   }
+}
 
   // Debounced title update handler
   const handleTitleChange = (e) => {
