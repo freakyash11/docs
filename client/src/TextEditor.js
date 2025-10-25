@@ -43,7 +43,7 @@ export default function TextEditor() {
     const token = await getToken()
     console.log('🔵 Token obtained:', token ? 'Yes' : 'No')
     
-    const url = `${backendUrl}/documents/${documentId}`
+    const url = `${backendUrl}/api/documents/${documentId}`
     console.log('🔵 Full URL:', url)
     
     const response = await fetch(url, {
