@@ -5,7 +5,8 @@ import {
   getUserDocuments,
   getDocument,
   updateDocument,
-  deleteDocument
+  deleteDocument,
+  updateDocumentTitle
 } from '../controllers/documentController.js';
 
 const router = express.Router();
@@ -24,7 +25,9 @@ console.log('Loading documentRoutes.js - end');
 router.get('/:id', getDocument);
 
 // PATCH /api/documents/:id - Update document metadata
-router.patch('/:id', updateDocument);
+router.patch('/:id', updateDocumentTitle);
+
+router.put('/:id', updateDocument);
 
 // DELETE /api/documents/:id - Delete document
 router.delete('/:id', deleteDocument);

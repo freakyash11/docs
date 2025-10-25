@@ -1,5 +1,5 @@
 import Document from '../models/Document.js';
-import User from '../models/User.js';  // Import User model
+import User from '../models/User.js';
 import mongoose from 'mongoose';
 
 // Create new document
@@ -17,7 +17,7 @@ export const createDocument = async (req, res) => {
     if (!user) {
       user = new User({
         clerkId: req.userId,
-        name: 'Unknown User',  // Fetch from Clerk if needed
+        name: 'Unknown User',
         email: 'unknown@example.com'
       });
       await user.save();
@@ -25,8 +25,8 @@ export const createDocument = async (req, res) => {
 
     const document = new Document({
       title: title || 'Untitled Document',
-      ownerId: user._id,  // Use MongoDB ObjectId for ref
-      lastModifiedBy: user._id,  // ObjectId
+      ownerId: user._id,
+      lastModifiedBy: user._id,
       data: {}
     });
     
@@ -50,7 +50,7 @@ export const createDocument = async (req, res) => {
 export const getUserDocuments = async (req, res) => {
   try {
     console.log('getUserDocuments called - userId:', req.userId);
-    const userId = req.userId;  // Clerk ID (string)
+    const userId = req.userId;
     
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
@@ -61,15 +61,15 @@ export const getUserDocuments = async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    const mongoUserId = user._id;  // ObjectId for query
+    const mongoUserId = user._id;
 
     const documents = await Document.find({
       $or: [
         { ownerId: mongoUserId },
-        { 'collaborators.userId': mongoUserId }  // Assuming collaborators.userId is ObjectId
+        { 'collaborators.userId': mongoUserId }
       ]
     })
-    .populate('ownerId', 'name email')  // Now works with ObjectId ref
+    .populate('ownerId', 'name email')
     .populate('collaborators.userId', 'name email')
     .sort({ updatedAt: -1 });
     
@@ -98,7 +98,7 @@ export const getDocument = async (req, res) => {
   try {
     console.log('getDocument called - id:', req.params.id, 'userId:', req.userId);
     const { id } = req.params;
-    const userId = req.userId;  // Clerk ID
+    const userId = req.userId;
     
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: 'Invalid document ID' });
@@ -151,13 +151,13 @@ export const getDocument = async (req, res) => {
   }
 };
 
-// Update document metadata
+// Update document metadata (including title)
 export const updateDocument = async (req, res) => {
   try {
     console.log('updateDocument called - id:', req.params.id, 'userId:', req.userId, 'Body:', req.body);
     const { id } = req.params;
     const { title, isPublic, collaborators } = req.body;
-    const userId = req.userId;  // Clerk ID
+    const userId = req.userId;
     
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: 'Invalid document ID' });
@@ -207,12 +207,67 @@ export const updateDocument = async (req, res) => {
   }
 };
 
+// PATCH: Update only document title (lightweight endpoint)
+export const updateDocumentTitle = async (req, res) => {
+  try {
+    console.log('updateDocumentTitle called - id:', req.params.id, 'userId:', req.userId, 'Body:', req.body);
+    const { id } = req.params;
+    const { title } = req.body;
+    const userId = req.userId;
+    
+    // Validate inputs
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid document ID' });
+    }
+    
+    if (!title || typeof title !== 'string') {
+      return res.status(400).json({ error: 'Title is required and must be a string' });
+    }
+    
+    // Find user
+    const user = await User.findOne({ clerkId: userId });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const mongoUserId = user._id;
+
+    // Find document
+    const document = await Document.findById(id);
+    
+    if (!document) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+    
+    // Check if user is owner (only owners can change title)
+    if (document.ownerId.toString() !== mongoUserId.toString()) {
+      return res.status(403).json({ error: 'Only document owner can update title' });
+    }
+    
+    // Update only title and lastModifiedBy
+    document.title = title.trim();
+    document.lastModifiedBy = mongoUserId;
+    await document.save();
+    
+    console.log('Document title updated successfully:', document._id, 'New title:', document.title);
+    
+    res.json({
+      success: true,
+      id: document._id,
+      title: document.title,
+      updatedAt: document.updatedAt
+    });
+  } catch (error) {
+    console.error('Update document title error:', error.message, 'Stack:', error.stack);
+    res.status(500).json({ error: 'Failed to update document title' });
+  }
+};
+
 // Delete document
 export const deleteDocument = async (req, res) => {
   try {
     console.log('deleteDocument called - id:', req.params.id, 'userId:', req.userId);
     const { id } = req.params;
-    const userId = req.userId;  // Clerk ID
+    const userId = req.userId;
     
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: 'Invalid document ID' });
