@@ -4,6 +4,8 @@ import "quill/dist/quill.snow.css"
 import { io } from "socket.io-client"
 import { useParams } from "react-router-dom"
 import { useAuth } from '@clerk/clerk-react'
+import { Share2 } from "lucide-react"
+import ShareModal from "./components/ShareModal"  // Import the ShareModal component
 
 const SAVE_INTERVAL_MS = 2000
 const TOOLBAR_OPTIONS = [
@@ -23,53 +25,49 @@ export default function TextEditor() {
   const { id: documentId } = useParams()
   const [title, setTitle] = useState("Untitled Document")
   const [isEditingTitle, setIsEditingTitle] = useState(false)
-  const [saveStatus, setSaveStatus] = useState("") // "saving" | "saved" | ""
+  const [saveStatus, setSaveStatus] = useState("")
   const titleTimeoutRef = useRef(null)
   const [socket, setSocket] = useState()
   const [quill, setQuill] = useState()
-  const socketRef = useRef(null);
+  const socketRef = useRef(null)
+  
+  // Share modal state
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [permissions, setPermissions] = useState({
+    isPublic: false,
+    collaborators: [],
+    isOwner: false
+  })
+  const [userRole, setUserRole] = useState("editor") // "viewer" or "editor"
 
-  // Define backendUrl at component level
-  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
+  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001'
 
   // Function to update document title via PATCH API
   const updateDocumentTitle = async (newTitle) => {
-  console.log('🔵 Frontend: Attempting to update title to:', newTitle)
-  console.log('🔵 Document ID:', documentId)
-  console.log('🔵 Backend URL:', backendUrl)
-  
-  try {
-    setSaveStatus("saving")
-    const token = await getToken()
-    console.log('🔵 Token obtained:', token ? 'Yes' : 'No')
-    
-    const url = `${backendUrl}/api/documents/${documentId}`
-    console.log('🔵 Full URL:', url)
-    
-    const response = await fetch(url, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ title: newTitle })
-    })
+    try {
+      setSaveStatus("saving")
+      const token = await getToken()
+      
+      const response = await fetch(`${backendUrl}/api/documents/${documentId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ title: newTitle })
+      })
 
-    console.log('🔵 Response status:', response.status)
-    const data = await response.json()
-    console.log('🔵 Response data:', data)
+      if (!response.ok) {
+        throw new Error('Failed to update title')
+      }
 
-    if (!response.ok) {
-      throw new Error('Failed to update title')
+      setSaveStatus("saved")
+      setTimeout(() => setSaveStatus(""), 2000)
+    } catch (error) {
+      console.error('Error updating document title:', error)
+      setSaveStatus("")
     }
-
-    setSaveStatus("saved")
-    setTimeout(() => setSaveStatus(""), 2000)
-  } catch (error) {
-    console.error('🔴 Error updating document title:', error)
-    setSaveStatus("")
   }
-}
 
   // Debounced title update handler
   const handleTitleChange = (e) => {
@@ -96,7 +94,7 @@ export default function TextEditor() {
   useEffect(() => {
     const connectSocket = async () => {
       try {
-        const token = await getToken();
+        const token = await getToken()
         const s = io(backendUrl, {
           auth: { token },
           transports: ['websocket'],
@@ -107,56 +105,50 @@ export default function TextEditor() {
           reconnection: true,
           reconnectionAttempts: 10,
           forceNew: true
-        });
+        })
         
-        s.on('connect', () => console.log('Socket connected successfully!'));
+        s.on('connect', () => console.log('Socket connected successfully!'))
         s.on('connect_error', (err) => {
-          console.error('Socket connect error:', err.message);
-        });
-        s.on('disconnect', (reason) => console.log('Disconnect reason:', reason));
-        s.on('error', (err) => console.error('Socket error:', err));
-        s.on('documentLoaded', () => console.log('Initial data received!'));
-        s.on('connect_error', (err) => {
-          console.error('Socket connect error:', err.message, 'Transport:', err.type);
-          if (err.type === 'TransportError' && err.description.includes('websocket')) {
-            console.log('WS failed - falling back to polling');
-          }
-        });
-        socketRef.current = s;
-        setSocket(s);
+          console.error('Socket connect error:', err.message)
+        })
+        s.on('disconnect', (reason) => console.log('Disconnect reason:', reason))
+        s.on('error', (err) => console.error('Socket error:', err))
+        
+        socketRef.current = s
+        setSocket(s)
       } catch (error) {
-        console.error('Failed to get token or connect socket:', error);
+        console.error('Failed to get token or connect socket:', error)
       }
-    };
+    }
     
-    connectSocket();
+    connectSocket()
 
     return () => {
       if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
+        socketRef.current.disconnect()
+        socketRef.current = null
       }
       if (titleTimeoutRef.current) {
         clearTimeout(titleTimeoutRef.current)
       }
-    };
-  }, [getToken, backendUrl]);
+    }
+  }, [getToken, backendUrl])
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket) return
 
     const tokenRefreshInterval = setInterval(async () => {
       try {
-        const newToken = await getToken();
-        socket.emit('refresh-token', newToken);
-        console.log('Token refreshed and emitted');
+        const newToken = await getToken()
+        socket.emit('refresh-token', newToken)
+        console.log('Token refreshed and emitted')
       } catch (error) {
-        console.error('Token refresh error:', error);
+        console.error('Token refresh error:', error)
       }
-    }, 30000);
+    }, 30000)
 
-    return () => clearInterval(tokenRefreshInterval);
-  }, [socket, getToken]);
+    return () => clearInterval(tokenRefreshInterval)
+  }, [socket, getToken])
 
   useEffect(() => {
     if (socket == null || quill == null) return
@@ -166,11 +158,64 @@ export default function TextEditor() {
       if (document.title) {
         setTitle(document.title)
       }
+      // Load permissions
+      if (document.isOwner !== undefined) {
+        setPermissions({
+          isPublic: document.isPublic || false,
+          collaborators: document.collaborators || [],
+          isOwner: document.isOwner
+        })
+        
+        // Set user role based on permissions
+        if (document.isOwner) {
+          setUserRole("editor")
+        } else {
+          const userCollab = document.collaborators?.find(c => c.isCurrentUser)
+          setUserRole(userCollab?.permission || "viewer")
+        }
+      }
       quill.enable()
     })
 
     socket.emit("get-document", documentId)
   }, [socket, quill, documentId])
+
+  // Listen for permission updates from other users
+  useEffect(() => {
+    if (!socket) return
+
+    const handlePermissionsUpdate = (data) => {
+      console.log('Permissions updated:', data)
+      
+      if (data.updates.isPublic !== undefined) {
+        setPermissions(prev => ({ ...prev, isPublic: data.updates.isPublic }))
+      }
+      
+      if (data.updates.collaborators) {
+        setPermissions(prev => ({ ...prev, collaborators: data.updates.collaborators }))
+        
+        // Check if current user's role changed
+        const userCollab = data.updates.collaborators.find(c => c.isCurrentUser)
+        if (userCollab) {
+          setUserRole(userCollab.permission)
+          
+          // Disable editor if downgraded to viewer
+          if (userCollab.permission === "viewer" && quill) {
+            quill.disable()
+            alert("Your access has been changed to view-only")
+          } else if (userCollab.permission === "editor" && quill) {
+            quill.enable()
+          }
+        }
+      }
+    }
+
+    socket.on("permissions-updated", handlePermissionsUpdate)
+
+    return () => {
+      socket.off("permissions-updated", handlePermissionsUpdate)
+    }
+  }, [socket, quill])
 
   useEffect(() => {
     if (socket == null || quill == null) return
@@ -245,7 +290,16 @@ export default function TextEditor() {
             isEditingTitle ? 'bg-gray-100' : 'bg-transparent'
           }`}
           placeholder="Untitled Document"
+          disabled={userRole === "viewer"}
         />
+        
+        {/* User Role Badge */}
+        {userRole === "viewer" && (
+          <span className="px-3 py-1 bg-gray-100 text-gray-600 text-sm font-medium rounded-full">
+            View Only
+          </span>
+        )}
+        
         {saveStatus === "saving" && (
           <span className="text-sm text-gray-600 font-medium flex items-center gap-2">
             <span className="inline-block w-3.5 h-3.5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
@@ -257,10 +311,30 @@ export default function TextEditor() {
             <span className="text-base">✔</span> Saved
           </span>
         )}
+        
+        {/* Share Button */}
+        <button
+          onClick={() => setIsShareModalOpen(true)}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium"
+        >
+          <Share2 className="w-4 h-4" />
+          Share
+        </button>
       </div>
 
       {/* Editor Container */}
       <div className="container flex-1 overflow-auto" ref={wrapperRef}></div>
+      
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        documentId={documentId}
+        currentPermissions={permissions}
+        socket={socket}
+        getToken={getToken}
+        backendUrl={backendUrl}
+      />
     </div>
   )
 }
