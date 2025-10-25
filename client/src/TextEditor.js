@@ -35,7 +35,7 @@ const updateDocumentTitle = async (newTitle) => {
     setSaveStatus("saving")
     const token = await getToken()
     
-    const response = await fetch(`${backendUrl}/documents/${documentId}`, {
+    const response = await fetch(`${REACT_APP_BACKEND_URL}/documents/${documentId}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
