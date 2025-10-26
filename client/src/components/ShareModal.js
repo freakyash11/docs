@@ -297,27 +297,27 @@ export default function ShareModal({
                 People with access ({collaborators.length})
               </h3>
               <div className="space-y-2">
-                {collaborators.map((collaborator) => (
+                {collaborators.map((collaborator, index) => (
                   <div
-                    key={collaborator.email}
+                    key={collaborator.email || index}
                     className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                        {collaborator.name?.charAt(0).toUpperCase() || collaborator.email.charAt(0).toUpperCase()}
+                        {collaborator.name?.charAt(0).toUpperCase() || collaborator.email?.charAt(0).toUpperCase() || '?'}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-800 truncate">
-                          {collaborator.name || collaborator.email}
+                          {collaborator.name || collaborator.email || 'Unknown User'}
                         </p>
-                        {collaborator.name && (
+                        {collaborator.name && collaborator.email && (
                           <p className="text-xs text-gray-500 truncate">{collaborator.email}</p>
                         )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <select
-                        value={collaborator.permission}
+                        value={collaborator.permission || 'viewer'}
                         onChange={(e) => handleUpdateRole(collaborator.email, e.target.value)}
                         className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
