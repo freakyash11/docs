@@ -210,18 +210,14 @@ export const updateDocument = async (req, res) => {
 // PATCH: Update only document title (lightweight endpoint)
 export const updateDocumentTitle = async (req, res) => {
   try {
-    console.log('updateDocumentTitle called - id:', req.params.id, 'userId:', req.userId, 'Body:', req.body);
+    console.log('updateDocument PATCH called - id:', req.params.id, 'userId:', req.userId, 'Body:', req.body);
     const { id } = req.params;
-    const { title } = req.body;
+    const { title, isPublic, collaborators } = req.body;
     const userId = req.userId;
     
-    // Validate inputs
+    // Validate document ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: 'Invalid document ID' });
-    }
-    
-    if (!title || typeof title !== 'string') {
-      return res.status(400).json({ error: 'Title is required and must be a string' });
     }
     
     // Find user
@@ -238,27 +234,71 @@ export const updateDocumentTitle = async (req, res) => {
       return res.status(404).json({ error: 'Document not found' });
     }
     
-    // Check if user is owner (only owners can change title)
+    // Check if user is owner (only owners can change permissions/title)
     if (document.ownerId.toString() !== mongoUserId.toString()) {
-      return res.status(403).json({ error: 'Only document owner can update title' });
+      return res.status(403).json({ error: 'Only document owner can update document settings' });
     }
     
-    // Update only title and lastModifiedBy
-    document.title = title.trim();
-    document.lastModifiedBy = mongoUserId;
+    // Prepare update object
+    const updateData = { lastModifiedBy: mongoUserId };
+    
+    // Update title if provided
+    if (title !== undefined) {
+      if (typeof title !== 'string') {
+        return res.status(400).json({ error: 'Title must be a string' });
+      }
+      updateData.title = title.trim();
+    }
+    
+    // Update isPublic if provided
+    if (isPublic !== undefined) {
+      updateData.isPublic = Boolean(isPublic);
+    }
+    
+    // Update collaborators if provided
+    if (collaborators !== undefined) {
+      if (!Array.isArray(collaborators)) {
+        return res.status(400).json({ error: 'Collaborators must be an array' });
+      }
+      
+      // Process collaborators - find or create users by email
+      const processedCollaborators = [];
+      for (const collab of collaborators) {
+        if (!collab.email) {
+          continue; // Skip invalid entries
+        }
+        
+        // Try to find existing user by email
+        let collaboratorUser = await User.findOne({ email: collab.email });
+        
+        // Store collaborator info
+        processedCollaborators.push({
+          userId: collaboratorUser?._id || null,
+          email: collab.email,
+          permission: collab.permission || 'viewer'
+        });
+      }
+      
+      updateData.collaborators = processedCollaborators;
+    }
+    
+    // Update document
+    Object.assign(document, updateData);
     await document.save();
     
-    console.log('Document title updated successfully:', document._id, 'New title:', document.title);
+    console.log('Document updated successfully:', document._id);
     
     res.json({
       success: true,
       id: document._id,
       title: document.title,
+      isPublic: document.isPublic,
+      collaborators: document.collaborators,
       updatedAt: document.updatedAt
     });
   } catch (error) {
-    console.error('Update document title error:', error.message, 'Stack:', error.stack);
-    res.status(500).json({ error: 'Failed to update document title' });
+    console.error('Update document error:', error.message, 'Stack:', error.stack);
+    res.status(500).json({ error: 'Failed to update document' });
   }
 };
 
