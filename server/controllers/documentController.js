@@ -271,15 +271,16 @@ export const updateDocumentTitle = async (req, res) => {
         // Try to find existing user by email
         let collaboratorUser = await User.findOne({ email: collab.email });
         
-        // Store collaborator info
+        // Store collaborator info - ALWAYS include email field
         processedCollaborators.push({
           userId: collaboratorUser?._id || null,
-          email: collab.email,
+          email: collab.email, // CRITICAL: Always store email
           permission: collab.permission || 'viewer'
         });
       }
       
       updateData.collaborators = processedCollaborators;
+      console.log('Processed collaborators:', processedCollaborators); // Debug log
     }
     
     // Update document

@@ -20,6 +20,7 @@ const documentSchema = new mongoose.Schema({
       type: String,
       ref: 'User'
     },
+    email: { type: String, required: true },
     permission: {
       type: String,
       enum: ['viewer', 'editor'],
