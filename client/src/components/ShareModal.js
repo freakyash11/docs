@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { X, Mail, Globe, Lock, UserPlus, Check, Trash2 } from "lucide-react"
+import { X, Mail, Globe, Lock, UserPlus, Check, Trash2, Link2, Copy } from "lucide-react"
 
 export default function ShareModal({ 
   isOpen, 
@@ -16,6 +16,20 @@ export default function ShareModal({
   const [newRole, setNewRole] = useState("viewer")
   const [saveStatus, setSaveStatus] = useState("")
   const [error, setError] = useState("")
+  const [copySuccess, setCopySuccess] = useState(false)
+
+  // Copy link to clipboard
+  const handleCopyLink = async () => {
+    try {
+      const documentLink = `${window.location.origin}/documents/${documentId}`
+      await navigator.clipboard.writeText(documentLink)
+      setCopySuccess(true)
+      setTimeout(() => setCopySuccess(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy link:', err)
+      setError('Failed to copy link to clipboard')
+    }
+  }
 
   // Update local state when props change
   useEffect(() => {
@@ -216,6 +230,26 @@ export default function ShareModal({
                 }`} />
               </div>
             </button>
+
+            {/* Copy Link Button */}
+            {isPublic && (
+              <button
+                onClick={handleCopyLink}
+                className="w-full mt-3 flex items-center justify-center gap-2 p-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
+              >
+                {copySuccess ? (
+                  <>
+                    <Check className="w-4 h-4 text-green-600" />
+                    <span className="text-green-600">Link copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="w-4 h-4" />
+                    <span>Copy link</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
 
           {/* Add Collaborator */}
