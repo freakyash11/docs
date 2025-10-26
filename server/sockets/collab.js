@@ -126,12 +126,16 @@ function setupSocket(server, redis) {
             title: document.title,
             isPublic: document.isPublic,
             isOwner,
-            collaborators: document.collaborators.map(c => ({
-              name: c.userId?.name,
-              email: c.userId?.email || c.email,
-              permission: c.permission,
-              isCurrentUser: c.userId?._id.toString() === mongoUserId.toString()
-            })),
+            collaborators: document.collaborators.map(c => {
+              // Always prioritize the email field stored in collaborator
+              const collabData = {
+                email: c.email || c.userId?.email || 'unknown@email.com',
+                permission: c.permission || 'viewer',
+                isCurrentUser: c.userId?._id.toString() === mongoUserId.toString()
+              }
+              console.log('📧 Collaborator data being sent:', collabData) // Debug log
+              return collabData
+            }),
             userPermission
           });
           console.log('Emitted load-document with permissions to socket:', socket.id);
