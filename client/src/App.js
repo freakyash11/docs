@@ -11,6 +11,7 @@ import AuthPage from "./components/AuthPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import Dashboard from './components/Dashboard';
+import InvitePage from './components/InvitePage';
 //comment
 // Wrapper component to generate UUID only when the root route is rendered
 const NewDocumentRedirect = () => {
@@ -24,6 +25,7 @@ function App() {
       <Routes>
        <Route path="/" element={<Navigate to="/dashboard" />} />
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/invite/:token" element={<InvitePage />} />
         <Route path="/dashboard" element={
         <ProtectedRoute>
           <Layout>

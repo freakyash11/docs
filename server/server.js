@@ -8,6 +8,8 @@ import cors from 'cors';
 import webhookRoutes from './routes/webhooks.js';
 import authRoutes from './routes/auth.js';
 import documentRoutes from './routes/documentRoutes.js';
+import invitationRoutes from './routes/invitationRoutes.js';
+import { emailService } from './services/emailService.js';
 
 
 const app = express();
@@ -40,6 +42,15 @@ app.use(express.json());
 
 // MongoDB connection
 await connectDB();
+
+// Verify email service connection
+try {
+  await emailService.verifyConnection();
+  console.log('Email service connected successfully');
+} catch (error) {
+  console.error('Failed to connect to email service:', error);
+}
+
 app.use('/api/auth', authRoutes);
 
 // Redis Setup (for sharing Socket.IO sessions/SIDs)
@@ -47,10 +58,12 @@ const redis = new Redis(process.env.REDIS_URL);  // REDIS_URL from Render env va
 
 // Socket.IO Setup - now handled entirely in collab.js
 const io = setupSocket(server, redis);  // Pass both server and redis instance
+app.set('io', io); // Make io available to route handlers
 console.log('Socket.IO setup completed');
 
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/invitations', invitationRoutes);
 // Basic health check route
 app.get('/', (req, res) => {
   res.json({ status: 'Server is running' });

@@ -12,11 +12,77 @@ export default function ShareModal({
 }) {
   const [isPublic, setIsPublic] = useState(currentPermissions?.isPublic || false)
   const [collaborators, setCollaborators] = useState(currentPermissions?.collaborators || [])
+  const [pendingInvites, setPendingInvites] = useState([])
   const [newEmail, setNewEmail] = useState("")
   const [newRole, setNewRole] = useState("viewer")
+  const [newMessage, setNewMessage] = useState("")  // Optional message
   const [saveStatus, setSaveStatus] = useState("")
   const [error, setError] = useState("")
   const [copySuccess, setCopySuccess] = useState(false)
+
+  // Handle resend invitation
+  const handleResendInvite = async (inviteId) => {
+    try {
+      const token = await getToken()
+      const response = await fetch(`${backendUrl}/api/invitations/${inviteId}/resend`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to resend invitation')
+      }
+
+      const data = await response.json()
+      
+      // Show success message
+      setSaveStatus('Invitation resent successfully')
+      setTimeout(() => setSaveStatus(''), 3000)
+
+      // Update pending invites list
+      setPendingInvites(prev => prev.map(invite => 
+        invite.id === inviteId 
+          ? { ...data.invitation, id: data.invitation.id } 
+          : invite
+      ))
+
+    } catch (err) {
+      console.error('Resend invitation error:', err)
+      setError(err.message)
+    }
+  }
+
+  // Handle revoke invitation
+  const handleRevokeInvite = async (inviteId) => {
+    try {
+      const token = await getToken()
+      const response = await fetch(`${backendUrl}/api/invitations/${inviteId}/revoke`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to revoke invitation')
+      }
+
+      // Remove from pending invites list
+      setPendingInvites(prev => prev.filter(invite => invite.id !== inviteId))
+      
+      // Show success message
+      setSaveStatus('Invitation revoked')
+      setTimeout(() => setSaveStatus(''), 3000)
+
+    } catch (err) {
+      console.error('Revoke invitation error:', err)
+      setError(err.message)
+    }
+  }
 
   // Copy link to clipboard
   const handleCopyLink = async () => {
@@ -39,6 +105,31 @@ export default function ShareModal({
       setCollaborators(currentPermissions.collaborators || [])
     }
   }, [currentPermissions])
+
+  // Fetch pending invitations when modal opens
+  useEffect(() => {
+    const fetchPendingInvites = async () => {
+      if (!isOpen) return;
+      
+      try {
+        const token = await getToken()
+        const response = await fetch(`${backendUrl}/api/documents/${documentId}/invitations?status=pending`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+
+        if (!response.ok) throw new Error('Failed to fetch pending invitations')
+        
+        const data = await response.json()
+        setPendingInvites(data.invitations || [])
+      } catch (err) {
+        console.error('Fetch pending invites error:', err)
+      }
+    }
+
+    fetchPendingInvites()
+  }, [isOpen, documentId, getToken, backendUrl])
 
   // Update permissions on backend
   const updatePermissions = async (updates) => {
@@ -95,7 +186,7 @@ export default function ShareModal({
     }
   }
 
-  // Add collaborator
+  // Send invitation
   const handleAddCollaborator = async () => {
     if (!newEmail.trim()) {
       setError("Please enter an email address")
@@ -115,20 +206,57 @@ export default function ShareModal({
       return
     }
 
-    const newCollaborator = {
-      email: newEmail.trim(),
-      permission: newRole
-    }
-
-    const updatedCollaborators = [...collaborators, newCollaborator]
-    setCollaborators(updatedCollaborators)
-    setNewEmail("")
+    setSaveStatus("sending")
     setError("")
 
     try {
-      await updatePermissions({ collaborators: updatedCollaborators })
+      const token = await getToken()
+      const response = await fetch(`${backendUrl}/api/documents/${documentId}/invite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          email: newEmail.trim(),
+          role: newRole
+        })
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to send invitation')
+      }
+
+      const data = await response.json()
+      
+      // Show success message
+      setSaveStatus("sent")
+      setNewEmail("")
+      
+      // Add to pending invites list if you have one
+      // For now, just show temporary success message
+      const successMessage = `Invitation sent to ${newEmail} (expires in 7 days)`
+      setError("") // Clear any existing errors
+      setSaveStatus(successMessage)
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSaveStatus("")
+      }, 3000)
+
+      // Notify other collaborators via socket
+      if (socket) {
+        socket.emit("invitation-sent", {
+          documentId,
+          invitation: data.invitation
+        })
+      }
+
     } catch (err) {
-      setCollaborators(collaborators) // Revert on error
+      console.error('Send invitation error:', err)
+      setError(err.message)
+      setSaveStatus("")
     }
   }
 
@@ -176,7 +304,7 @@ export default function ShareModal({
 
         {/* Content */}
         <div className="px-6 py-4 overflow-y-auto flex-1">
-          {/* Save Status */}
+          {/* Save/Send Status */}
           {saveStatus && (
             <div className="mb-4 flex items-center gap-2 text-sm">
               {saveStatus === "saving" && (
@@ -189,6 +317,18 @@ export default function ShareModal({
                 <>
                   <Check className="w-4 h-4 text-green-600" />
                   <span className="text-green-600">Changes saved</span>
+                </>
+              )}
+              {saveStatus === "sending" && (
+                <>
+                  <span className="inline-block w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-blue-600">Sending invitation...</span>
+                </>
+              )}
+              {saveStatus.includes("sent to") && (
+                <>
+                  <Check className="w-4 h-4 text-green-600" />
+                  <span className="text-green-600">{saveStatus}</span>
                 </>
               )}
             </div>
@@ -256,40 +396,105 @@ export default function ShareModal({
           {/* Add Collaborator */}
           <div className="mb-6">
             <h3 className="text-sm font-medium text-gray-700 mb-3">Invite People</h3>
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      handleAddCollaborator()
-                    }
-                  }}
-                  placeholder="Enter email address"
-                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="email"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        handleAddCollaborator()
+                      }
+                    }}
+                    placeholder="Enter email address"
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <select
+                  value={newRole}
+                  onChange={(e) => setNewRole(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="viewer">Viewer</option>
+                  <option value="editor">Editor</option>
+                </select>
               </div>
-              <select
-                value={newRole}
-                onChange={(e) => setNewRole(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="viewer">Viewer</option>
-                <option value="editor">Editor</option>
-              </select>
+              
+              {/* Optional Message */}
+              <div className="relative">
+                <textarea
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Add a message (optional)"
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  maxLength={200}
+                />
+                <div className="absolute right-2 bottom-2 text-xs text-gray-400">
+                  {newMessage.length}/200
+                </div>
+              </div>
+
               <button
                 onClick={handleAddCollaborator}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium"
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
               >
                 <UserPlus className="w-4 h-4" />
-                Add
+                Send Invitation
               </button>
             </div>
           </div>
+
+          {/* Pending Invitations */}
+          {pendingInvites.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">
+                Pending Invitations ({pendingInvites.length})
+              </h3>
+              <div className="space-y-2">
+                {pendingInvites.map((invite) => (
+                  <div
+                    key={invite.id}
+                    className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-gray-50"
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="w-8 h-8 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                        {invite.email?.charAt(0).toUpperCase() || '?'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">
+                          {invite.email}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Invited as {invite.role} • Expires in {Math.ceil((new Date(invite.expiresAt) - new Date()) / (1000 * 60 * 60 * 24))} days
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleResendInvite(invite.id)}
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        title="Resend invitation"
+                      >
+                        <Mail className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleRevokeInvite(invite.id)}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        title="Revoke invitation"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Collaborators List */}
           {collaborators.length > 0 && (
