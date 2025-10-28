@@ -55,7 +55,8 @@ async function checkEmailRateLimit(email, documentId) {
 // Create invitation (send invite)
 export const createInvitation = async (req, res) => {
   try {
-    const { documentId, email, role, notes } = req.body;
+    const { documentId } = req.params;
+    const { email, role, notes } = req.body;
     const userId = req.userId; // From auth middleware (Clerk ID)
     const ip = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     const userAgent = req.headers['user-agent'];
