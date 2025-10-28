@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { LogIn, FileText, Clock, UserPlus, AlertCircle } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext'; // Assuming you have this
+import { useAuth } from '@clerk/clerk-react'; // Assuming you have this
 
 export default function InvitePage() {
   const { token } = useParams();
