@@ -55,38 +55,49 @@ async function checkEmailRateLimit(email, documentId) {
 // Create invitation (send invite)
 export const createInvitation = async (req, res) => {
   try {
+    console.log('createInvitation called - Params:', req.params, 'Body:', req.body, 'UserId:', req.userId);  // Log full input for debug
+
     const { documentId } = req.params;
     const { email, role, notes } = req.body;
-    const userId = req.userId; // From auth middleware (Clerk ID)
+    const userId = req.userId;  // From auth middleware (Clerk ID)
     const ip = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     const userAgent = req.headers['user-agent'];
-    
-    // Validate inputs
-    if (!documentId || !email || !role) {
-      return res.status(400).json({ error: 'Document ID, email, and role are required' });
+
+    // Validate inputs with detailed logging
+    if (!documentId) {
+      console.log('Missing documentId from params');
+      return res.status(400).json({ error: 'Document ID is required in URL params' });
     }
-    
+    if (!email) {
+      console.log('Missing email from body');
+      return res.status(400).json({ error: 'Email is required in request body' });
+    }
+    if (!role) {
+      console.log('Missing role from body');
+      return res.status(400).json({ error: 'Role is required in request body' });
+    }
+
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
-    
+
     if (!['editor', 'viewer'].includes(role)) {
       return res.status(400).json({ error: 'Invalid role. Must be editor or viewer' });
     }
-    
+
     // Validate document ID
     if (!mongoose.Types.ObjectId.isValid(documentId)) {
       return res.status(400).json({ error: 'Invalid document ID' });
     }
-    
+
     // Find user by Clerk ID
     const user = await User.findOne({ clerkId: userId });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     // Rate limit: Check user
     const userRateLimit = checkUserRateLimit(user._id.toString());
     if (!userRateLimit.allowed) {
@@ -95,7 +106,7 @@ export const createInvitation = async (req, res) => {
         retryAfter: userRateLimit.resetIn * 60
       });
     }
-    
+
     // Rate limit: Check email
     const emailRateLimit = await checkEmailRateLimit(email, documentId);
     if (!emailRateLimit.allowed) {
@@ -104,34 +115,34 @@ export const createInvitation = async (req, res) => {
         count: emailRateLimit.count
       });
     }
-    
+
     // Check if document exists and user has permission to invite
     const document = await Document.findById(documentId);
     if (!document) {
-      return res.status(404).json({ error: 'Document not found' });
+      return res.status(400).json({ error: 'Document not found' });
     }
-    
+
     // Check if user is owner or editor
     const isOwner = document.ownerId.toString() === user._id.toString();
     const isEditor = document.collaborators.some(c => 
       c.userId?.toString() === user._id.toString() && c.permission === 'editor'
     );
-    
+
     if (!isOwner && !isEditor) {
       return res.status(403).json({ error: 'Only document owner or editors can send invitations' });
     }
-    
+
     // Editors can only invite viewers
     if (!isOwner && role === 'editor') {
       return res.status(403).json({ error: 'Only document owner can invite editors' });
     }
-    
+
     // Check if user is already a collaborator
     const existingCollab = document.collaborators.find(c => c.email === email);
     if (existingCollab) {
       return res.status(400).json({ error: 'User is already a collaborator' });
     }
-    
+
     // Create invitation with security logging
     const { invitation, plainToken } = await Invitation.createInvitation({
       docId: documentId,
@@ -142,11 +153,11 @@ export const createInvitation = async (req, res) => {
       ip,
       userAgent
     });
-    
+
     // Generate invitation link
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const inviteLink = `${frontendUrl}/invite/${plainToken}`; // Updated URL format
-    
+
     // Send invitation email
     await emailService.sendEmail({
       to: email,
@@ -161,7 +172,7 @@ export const createInvitation = async (req, res) => {
         companyAddress: process.env.COMPANY_ADDRESS || ''
       }
     });
-    
+
     console.log('📧 Invitation created:', {
       id: invitation._id,
       email,
@@ -169,7 +180,7 @@ export const createInvitation = async (req, res) => {
       link: inviteLink,
       expiresAt: invitation.expiresAt
     });
-    
+
     res.status(201).json({
       success: true,
       invitation: {
