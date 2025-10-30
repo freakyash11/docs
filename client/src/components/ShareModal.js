@@ -15,7 +15,6 @@ export default function ShareModal({
   const [pendingInvites, setPendingInvites] = useState([])
   const [newEmail, setNewEmail] = useState("")
   const [newRole, setNewRole] = useState("viewer")
-  const [newMessage, setNewMessage] = useState("")  // Optional message
   const [saveStatus, setSaveStatus] = useState("")
   const [error, setError] = useState("")
   const [copySuccess, setCopySuccess] = useState(false)
@@ -423,22 +422,6 @@ export default function ShareModal({
                   <option value="editor">Editor</option>
                 </select>
               </div>
-              
-              {/* Optional Message */}
-              <div className="relative">
-                <textarea
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Add a message (optional)"
-                  rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  maxLength={200}
-                />
-                <div className="absolute right-2 bottom-2 text-xs text-gray-400">
-                  {newMessage.length}/200
-                </div>
-              </div>
-
               <button
                 onClick={handleAddCollaborator}
                 className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
