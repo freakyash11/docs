@@ -57,10 +57,10 @@ export const createInvitation = async (req, res) => {
   try {
     const { id: documentId } = req.params;
     const { email, role, notes } = req.body;
-    const userId = req.userId;
+    const userId = req.userId; // From auth middleware (Clerk ID)
     const ip = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-    const userAgent = req.headers['user-agent'];
-    
+    const userAgent = req.headers['user-agent'];  // Fixed: req.headers, not req.connection
+
     console.log('createInvitation called - documentId:', documentId, 'Body:', req.body, 'UserId:', userId);
 
     // Validate inputs
@@ -73,10 +73,74 @@ export const createInvitation = async (req, res) => {
     if (!role) {
       return res.status(400).json({ error: 'Role is required in request body' });
     }
-    
-    // ... (keep all validation for email, role, document ID, user, rate limits, permissions, existing collab)
 
-    // Create invitation
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    if (!['editor', 'viewer'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role. Must be editor or viewer' });
+    }
+
+    // Validate document ID
+    if (!mongoose.Types.ObjectId.isValid(documentId)) {
+      return res.status(400).json({ error: 'Invalid document ID' });
+    }
+
+    // Find user by Clerk ID
+    const user = await User.findOne({ clerkId: userId });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Rate limit: Check user
+    const userRateLimit = checkUserRateLimit(user._id.toString());
+    if (!userRateLimit.allowed) {
+      return res.status(429).json({ 
+        error: `Rate limit exceeded. Try again in ${userRateLimit.resetIn} minutes`,
+        retryAfter: userRateLimit.resetIn * 60
+      });
+    }
+
+    // Rate limit: Check email
+    const emailRateLimit = await checkEmailRateLimit(email, documentId);
+    if (!emailRateLimit.allowed) {
+      return res.status(429).json({ 
+        error: 'Too many invitations sent to this email. Try again tomorrow',
+        count: emailRateLimit.count
+      });
+    }
+
+    // Check if document exists and user has permission to invite
+    const document = await Document.findById(documentId);
+    if (!document) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    // Check if user is owner or editor
+    const isOwner = document.ownerId.toString() === user._id.toString();
+    const isEditor = document.collaborators.some(c => 
+      c.userId?._id.toString() === user._id.toString() && c.permission === 'editor'
+    );
+
+    if (!isOwner && !isEditor) {
+      return res.status(403).json({ error: 'Only document owner or editors can send invitations' });
+    }
+
+    // Editors can only invite viewers
+    if (!isOwner && role === 'editor') {
+      return res.status(403).json({ error: 'Only document owner can invite editors' });
+    }
+
+    // Check if user is already a collaborator
+    const existingCollab = document.collaborators.find(c => c.email === email);
+    if (existingCollab) {
+      return res.status(400).json({ error: 'User is already a collaborator' });
+    }
+
+    // Create invitation with security logging
     const { invitation, plainToken } = await Invitation.createInvitation({
       docId: documentId,
       email,
@@ -87,12 +151,12 @@ export const createInvitation = async (req, res) => {
       userAgent
     });
 
-    // Generate link
+    // Generate invitation link
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const inviteLink = `${frontendUrl}/invite/${plainToken}`;
 
-    // Send email - catch and continue
-    const emailResult = await emailService.sendEmail({
+    // Send invitation email
+    await emailService.sendEmail({
       to: email,
       subject: `${user.name} invited you to collaborate on ${document.title}`,
       template: 'invitation',
@@ -104,14 +168,9 @@ export const createInvitation = async (req, res) => {
         companyName: process.env.COMPANY_NAME || 'Our Company',
         companyAddress: process.env.COMPANY_ADDRESS || ''
       }
-    }).catch(err => ({ success: false, error: err.message }));
+    });
 
-    if (!emailResult.success) {
-      console.warn('Email send failed (invitation saved anyway):', emailResult.error);
-      // Optional: Log to DB for retry (e.g., FailedEmail.create(...))
-    }
-
-    console.log('Invitation created:', {
+    console.log('📧 Invitation created:', {
       id: invitation._id,
       email,
       role,
@@ -128,6 +187,7 @@ export const createInvitation = async (req, res) => {
         expiresAt: invitation.expiresAt,
         status: invitation.status
       },
+      // Only return link in development for testing
       ...(process.env.NODE_ENV !== 'production' && { inviteLink })
     });
   } catch (error) {
