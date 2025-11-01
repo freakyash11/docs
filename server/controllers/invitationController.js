@@ -155,20 +155,27 @@ export const createInvitation = async (req, res) => {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const inviteLink = `${frontendUrl}/invite/${plainToken}`;
     
-    // Send invitation email
-    await emailService.sendEmail({
-      to: email,
-      subject: `${user.name} invited you to collaborate on ${document.title}`,
-      template: 'invitation',
-      context: {
-        senderName: user.name,
-        documentName: document.title,
-        invitationLink: inviteLink,
-        recipientEmail: email,
-        companyName: process.env.COMPANY_NAME || 'Our Company',
-        companyAddress: process.env.COMPANY_ADDRESS || ''
-      }
-    });
+    // Send invitation email - catch failure and continue
+    try {
+      await emailService.sendEmail({
+        to: email,
+        subject: `${user.name} invited you to collaborate on ${document.title}`,
+        template: 'invitation',
+        context: {
+          senderName: user.name,
+          documentName: document.title,
+          invitationLink: inviteLink,
+          recipientEmail: email,
+          companyName: process.env.COMPANY_NAME || 'Our Company',
+          companyAddress: process.env.COMPANY_ADDRESS || ''
+        }
+      });
+      console.log('Email sent successfully');
+    } catch (emailError) {
+      console.warn('Email send failed, but invitation saved:', emailError.message);
+      // Optional: Save to a "failedEmails" log or queue for retry
+      // e.g., await FailedEmail.create({ email, error: emailError.message });
+    }
     
     console.log('📧 Invitation created:', {
       id: invitation._id,

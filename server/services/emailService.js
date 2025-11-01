@@ -25,7 +25,9 @@ class EmailService {
       debug: true,
       connectionTimeout: 10000,  // 10s timeout
       greetingTimeout: 5000,
-      socketTimeout: 10000  // Close idle sockets
+      socketTimeout: 10000,
+      logger: true,  // Detailed logs
+      debug: true  
     });
 
     this.isVerified = false;
@@ -33,13 +35,19 @@ class EmailService {
   }
 
   async verifyAsync() {
-    try {
-      await this.transporter.verify();
-      this.isVerified = true;
-      console.log('Email service verified successfully');
-    } catch (error) {
-      console.error('Email verification failed (non-blocking):', error.message);
-      this.isVerified = false;  // Continue boot, retry on send
+    for (let attempt = 1; attempt <= 3; attempt++) {  // Retry 3 times
+      try {
+        await this.transporter.verify();
+        this.isVerified = true;
+        console.log('Email service verified successfully');
+        break;  // Success - exit loop
+      } catch (error) {
+        console.error(`Email verification attempt ${attempt} failed:`, error.message);
+        if (attempt === 3) {
+          console.warn('Email service verification failed after retries - sends may fail');
+        }
+        await new Promise(resolve => setTimeout(resolve, 5000));  // Wait 5s before retry
+      }
     }
   }
 
