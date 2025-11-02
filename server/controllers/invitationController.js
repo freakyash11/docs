@@ -59,7 +59,7 @@ export const createInvitation = async (req, res) => {
     const { email, role, notes } = req.body;
     const userId = req.userId; // From auth middleware (Clerk ID)
     const ip = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-    const userAgent = req.headers['user-agent'];  // Fixed: req.headers, not req.connection
+    const userAgent = req.headers['user-agent'];
 
     console.log('createInvitation called - documentId:', documentId, 'Body:', req.body, 'UserId:', userId);
 
@@ -155,8 +155,8 @@ export const createInvitation = async (req, res) => {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const inviteLink = `${frontendUrl}/invite/${plainToken}`;
 
-    // Send invitation email
-    await emailService.sendEmail({
+    // Send invitation email - non-blocking
+    const emailResult = await emailService.sendEmail({
       to: email,
       subject: `${user.name} invited you to collaborate on ${document.title}`,
       template: 'invitation',
@@ -165,10 +165,13 @@ export const createInvitation = async (req, res) => {
         documentName: document.title,
         invitationLink: inviteLink,
         recipientEmail: email,
-        companyName: process.env.COMPANY_NAME || 'Our Company',
-        companyAddress: process.env.COMPANY_ADDRESS || ''
       }
-    });
+    }).catch(error => ({ success: false, error: error.message }));
+
+    if (!emailResult.success) {
+      console.warn('Email send failed (invitation saved):', emailResult.error);
+      // Optional: Log to DB for retry
+    }
 
     console.log('📧 Invitation created:', {
       id: invitation._id,
