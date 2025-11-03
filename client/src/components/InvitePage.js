@@ -4,7 +4,7 @@ import { useAuth, RedirectToSignIn } from '@clerk/clerk-react';  // Import Redir
 
 const InvitePage = () => {
   const { token } = useParams();  // Get token from URL
-  const { isSignedIn } = useAuth();
+  const { getToken, isSignedIn } = useAuth();  // Fixed: Added getToken here
   const navigate = useNavigate();
   const [invitation, setInvitation] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -41,7 +41,7 @@ const InvitePage = () => {
 
   const acceptInvitation = async () => {
     try {
-      const token = await getToken();
+      const token = await getToken();  // Now defined
       const response = await fetch(`${backendUrl}/api/invite/accept/${token}`, {
         method: 'POST',
         headers: {
