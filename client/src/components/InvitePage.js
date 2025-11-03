@@ -1,16 +1,14 @@
-// InvitePage.js - New component for /invite/:token
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '@clerk/clerk-react';
+import { useAuth, RedirectToSignIn } from '@clerk/clerk-react';  // Import RedirectToSignIn
 
 const InvitePage = () => {
   const { token } = useParams();  // Get token from URL
-  const { getToken, isSignedIn, signIn } = useAuth();
+  const { isSignedIn } = useAuth();
   const navigate = useNavigate();
   const [invitation, setInvitation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [showLogin, setShowLogin] = useState(false);
 
   const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
@@ -35,39 +33,9 @@ const InvitePage = () => {
 
       setInvitation(data.invitation);
       setLoading(false);
-
-      if (!isSignedIn) {
-        setShowLogin(true);  // Prompt login
-      } else {
-        validateInvitation();  // Validate if logged in
-      }
     } catch (err) {
       setError(err.message);
       setLoading(false);
-    }
-  };
-
-  const validateInvitation = async () => {
-    try {
-      const token = await getToken();
-      const response = await fetch(`${backendUrl}/api/invite/validate/${token}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Validation failed');
-      }
-
-      setInvitation(data.invitation);
-
-      if (!data.invitation.canAccept) {
-        setError('This invitation is for a different email address. Please log in with the invited email.');
-      }
-    } catch (err) {
-      setError(err.message);
     }
   };
 
@@ -87,7 +55,7 @@ const InvitePage = () => {
       }
 
       console.log('Invitation accepted:', data);
-      navigate(data.redirectTo || '/dashboard');  // Redirect to document or dashboard
+      navigate(data.redirectTo || '/dashboard');
     } catch (err) {
       setError(err.message);
     }
@@ -121,16 +89,9 @@ const InvitePage = () => {
         <h1 className="text-2xl font-bold text-center mb-4">Invitation to Collaborate</h1>
         <p className="text-gray-600 mb-4">You've been invited to {invitation.role} on "{invitation.documentTitle}" by {invitation.invitedBy}.</p>
         
-        {showLogin && !isSignedIn ? (
-          <div className="mb-4">
-            <p className="text-gray-600 mb-4">Please log in with the invited email ({invitation.email}) to accept.</p>
-            <button
-              onClick={() => signIn({ redirectUrl: `/invite/${token}` })}
-              className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
-            >
-              Log In
-            </button>
-          </div>
+        {!isSignedIn ? (
+          // Use RedirectToSignIn for proper Clerk flow
+          <RedirectToSignIn afterSignInUrl={`/invite/${token}`} />
         ) : (
           <>
             {error ? (
