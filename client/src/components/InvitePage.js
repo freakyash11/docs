@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth, RedirectToSignIn } from '@clerk/clerk-react';  // Import RedirectToSignIn
+import { useAuth, RedirectToSignIn } from '@clerk/clerk-react';
 
 const InvitePage = () => {
-  const { token } = useParams();  // Get token from URL
-  const { getToken, isSignedIn } = useAuth();  // Fixed: Added getToken here
+  const { token: invitationToken } = useParams();  // Invitation token from URL
+  const { getToken, isSignedIn } = useAuth();
   const navigate = useNavigate();
   const [invitation, setInvitation] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -13,18 +13,18 @@ const InvitePage = () => {
   const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
   useEffect(() => {
-    if (!token) {
+    if (!invitationToken) {
       setError('Invalid invitation link');
       setLoading(false);
       return;
     }
 
     fetchInvitation();
-  }, [token]);
+  }, [invitationToken]);
 
   const fetchInvitation = async () => {
     try {
-      const response = await fetch(`${backendUrl}/api/invite/${token}`);
+      const response = await fetch(`${backendUrl}/api/invite/${invitationToken}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -41,11 +41,11 @@ const InvitePage = () => {
 
   const acceptInvitation = async () => {
     try {
-      const token = await getToken();  // Now defined
-      const response = await fetch(`${backendUrl}/api/invite/accept/${token}`, {
+      const jwtToken = await getToken();  // JWT for Authorization header
+      const response = await fetch(`${backendUrl}/api/invite/accept/${invitationToken}`, {  // invitationToken in URL
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${jwtToken}`  // JWT in header
         }
       });
       const data = await response.json();
@@ -84,14 +84,13 @@ const InvitePage = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screens flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8">
         <h1 className="text-2xl font-bold text-center mb-4">Invitation to Collaborate</h1>
         <p className="text-gray-600 mb-4">You've been invited to {invitation.role} on "{invitation.documentTitle}" by {invitation.invitedBy}.</p>
         
         {!isSignedIn ? (
-          // Use RedirectToSignIn for proper Clerk flow
-          <RedirectToSignIn afterSignInUrl={`/invite/${token}`} />
+          <RedirectToSignIn afterSignInUrl={`/invite/${invitationToken}`} />
         ) : (
           <>
             {error ? (
