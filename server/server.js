@@ -63,7 +63,7 @@ console.log('Socket.IO setup completed');
 
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/documents', documentRoutes);
-app.use('/api/invitations', invitationRoutes);
+app.use('/api/invite', invitationRoutes);
 // Basic health check route
 app.get('/', (req, res) => {
   res.json({ status: 'Server is running' });

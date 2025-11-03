@@ -34,10 +34,6 @@ router.put('/:id', updateDocument);
 // DELETE /api/documents/:id - Delete document
 router.delete('/:id', deleteDocument);
 
-// Document invitation routes
-router.post('/:id/invite', createInvitation);
-router.get('/:token', getInvitationByToken);  // GET /api/invite/:token
-router.post('/:token/validate', validateInvitation);  // POST /api/invite/:token/validate
-router.post('/:token/accept', acceptInvitation);  // POST /api/invite/:token/accept
+
 
 export default router;
