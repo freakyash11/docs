@@ -153,7 +153,7 @@ export const createInvitation = async (req, res) => {
 
     // Generate invitation link
     const frontendUrl = 'https://docsy-client.vercel.app/';
-    const inviteLink = `${frontendUrl}/${plainToken}`;
+    const inviteLink = `${frontendUrl}/invite/${plainToken}`;
 
     // Send invitation email - non-blocking
     const emailResult = await emailService.sendEmail({

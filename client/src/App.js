@@ -31,6 +31,7 @@ function App() {
           </Layout>
         </ProtectedRoute>
         } />
+        <Route path="/invite/:token" element={<InvitePage />} />
         <Route path="/documents/:id" element={
             <ProtectedRoute>
               <Layout>

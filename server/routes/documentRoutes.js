@@ -9,6 +9,7 @@ import {
   updateDocumentTitle
 } from '../controllers/documentController.js';
 import { createInvitation } from '../controllers/invitationController.js';
+import { getInvitationByToken, validateInvitation, acceptInvitation } from '../controllers/invitationController.js';
 
 const router = express.Router();
 
@@ -35,5 +36,8 @@ router.delete('/:id', deleteDocument);
 
 // Document invitation routes
 router.post('/:id/invite', createInvitation);
+router.get('/:token', getInvitationByToken);  // GET /api/invite/:token
+router.post('/:token/validate', validateInvitation);  // POST /api/invite/:token/validate
+router.post('/:token/accept', acceptInvitation);  // POST /api/invite/:token/accept
 
 export default router;
