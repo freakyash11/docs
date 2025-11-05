@@ -9,6 +9,7 @@ import {
   resendInvitation, 
   cleanupExpiredInvitations 
 } from '../controllers/invitationController.js';  // Adjust path to your controller file
+import authMiddleware from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -19,10 +20,10 @@ router.post('/documents/:id/invite', createInvitation);
 router.get('/:token', getInvitationByToken);
 
 // POST /api/invite/:token/validate - Validate invitation (email match, etc.)
-router.post('/:token/validate', validateInvitation);
+router.post('/:token/validate', authMiddleware, validateInvitation);
 
 // POST /api/invite/:token/accept - Accept invitation
-router.post('/:token/accept', acceptInvitation);
+router.post('/:token/accept', authMiddleware, acceptInvitation);
 
 // DELETE /api/invite/:invitationId - Revoke invitation (owner only)
 router.delete('/:invitationId', revokeInvitation);

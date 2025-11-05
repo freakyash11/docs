@@ -318,6 +318,8 @@ export const acceptInvitation = async (req, res) => {
   try {
     const { token } = req.params;
     const userId = req.userId; // From auth middleware (Clerk ID)
+
+    console.log('acceptInvitation called - token:', token, 'userId:', userId);
     
     if (!token) {
       return res.status(400).json({ error: 'Token is required' });
@@ -325,6 +327,7 @@ export const acceptInvitation = async (req, res) => {
     
     // Find user by Clerk ID
     const user = await User.findOne({ clerkId: userId });
+    console.log('User query result:', user ? 'Found' : 'Not found');
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }

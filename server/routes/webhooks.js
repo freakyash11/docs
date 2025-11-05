@@ -63,6 +63,8 @@ router.post('/clerk-webhook', express.raw({ type: 'application/json' }), async (
 
   const { type, data } = evt;
 
+  console.log(`Webhook received: ${type} for user ID: ${data.id}`);  // Log event for debug
+
   try {
     switch (type) {
       case 'user.created':
@@ -92,6 +94,8 @@ router.post('/clerk-webhook', express.raw({ type: 'application/json' }), async (
 async function handleUserCreated(userData) {
   const { id, email_addresses, first_name, last_name, external_accounts, image_url } = userData;
   
+  console.log('Handling user.created - ID:', id, 'Email:', email_addresses?.[0]?.email_address);  // Log for debug
+  
   const primaryEmail = email_addresses.find(email => email.id === userData.primary_email_address_id);
   const googleAccount = external_accounts?.find(account => account.provider === 'google');
   
@@ -112,6 +116,8 @@ async function handleUserCreated(userData) {
 async function handleUserUpdated(userData) {
   const { id, email_addresses, first_name, last_name, image_url } = userData;
   
+  console.log('Handling user.updated - ID:', id);  // Log for debug
+  
   const primaryEmail = email_addresses.find(email => email.id === userData.primary_email_address_id);
   
   await User.findOneAndUpdate(
@@ -121,7 +127,8 @@ async function handleUserUpdated(userData) {
       name: `${first_name || ''} ${last_name || ''}`.trim(),
       profileImage: image_url,
       emailVerified: primaryEmail?.verification?.status === 'verified'
-    }
+    },
+    { new: true }  // Return updated document
   );
   
   console.log('User updated:', primaryEmail?.email_address);
@@ -130,8 +137,14 @@ async function handleUserUpdated(userData) {
 async function handleUserDeleted(userData) {
   const { id } = userData;
   
-  await User.findOneAndDelete({ clerkId: userData.id });
-  console.log('User deleted:', id);
+  console.log('Handling user.deleted - ID:', id);  // Log for debug
+  
+  const result = await User.findOneAndDelete({ clerkId: id });
+  if (result) {
+    console.log('User deleted:', id);
+  } else {
+    console.log('User not found for deletion:', id);
+  }
 }
 
 export default router;
