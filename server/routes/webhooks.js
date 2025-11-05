@@ -63,7 +63,7 @@ router.post('/clerk-webhook', express.raw({ type: 'application/json' }), async (
 
   const { type, data } = evt;
 
-  console.log(`Webhook received: ${type} for user ID: ${data.id}`);  // Log event for debug
+  console.log(`Webhook received: ${type} for user ID: ${data.id}`);
 
   try {
     switch (type) {
@@ -90,58 +90,174 @@ router.post('/clerk-webhook', express.raw({ type: 'application/json' }), async (
   }
 });
 
+// Helper function to determine provider
+function getProvider(external_accounts) {
+  if (!external_accounts || external_accounts.length === 0) {
+    return 'email';
+  }
+  
+  const account = external_accounts[0];
+  const provider = account.provider?.toLowerCase();
+  
+  // Map provider to User schema enum values
+  if (['google', 'github', 'discord'].includes(provider)) {
+    return provider;
+  }
+  
+  return 'email';
+}
+
+// Helper function to get provider ID
+function getProviderId(external_accounts, providerName) {
+  if (!external_accounts || external_accounts.length === 0) {
+    return null;
+  }
+  
+  const account = external_accounts.find(
+    acc => acc.provider?.toLowerCase() === providerName
+  );
+  
+  return account?.provider_user_id || null;
+}
+
 // Handler functions
 async function handleUserCreated(userData) {
-  const { id, email_addresses, first_name, last_name, external_accounts, image_url } = userData;
+  const { 
+    id, 
+    email_addresses, 
+    first_name, 
+    last_name, 
+    external_accounts, 
+    image_url,
+    primary_email_address_id 
+  } = userData;
   
-  console.log('Handling user.created - ID:', id, 'Email:', email_addresses?.[0]?.email_address);  // Log for debug
+  console.log('Handling user.created - ID:', id);
   
-  const primaryEmail = email_addresses.find(email => email.id === userData.primary_email_address_id);
-  const googleAccount = external_accounts?.find(account => account.provider === 'google');
+  // Get email address - handle empty array case
+  let email = null;
+  if (email_addresses && email_addresses.length > 0) {
+    const primaryEmail = email_addresses.find(
+      emailObj => emailObj.id === primary_email_address_id
+    );
+    email = primaryEmail?.email_address || email_addresses[0]?.email_address;
+  }
   
-  const user = new User({
-    clerkId: id,
-    email: primaryEmail?.email_address,
-    name: `${first_name || ''} ${last_name || ''}`.trim(),
-    provider: googleAccount ? 'google' : 'email',
-    googleId: googleAccount?.provider_user_id || null,
-    profileImage: image_url,
-    emailVerified: primaryEmail?.verification?.status === 'verified'
-  });
+  // Determine provider and get provider ID
+  const provider = getProvider(external_accounts);
+  const googleId = getProviderId(external_accounts, 'google');
+  
+  // Build name - handle null values
+  const firstName = first_name || '';
+  const lastName = last_name || '';
+  const fullName = `${firstName} ${lastName}`.trim() || 'User';
+  
+  // Check if email is verified
+  let emailVerified = false;
+  if (email_addresses && email_addresses.length > 0) {
+    const primaryEmail = email_addresses.find(
+      emailObj => emailObj.id === primary_email_address_id
+    );
+    emailVerified = primaryEmail?.verification?.status === 'verified';
+  }
+  
+  // Validate required fields before creating
+  if (!email) {
+    console.error('Cannot create user: email is missing');
+    throw new Error('Email is required to create user');
+  }
+  
+  try {
+    const user = new User({
+      clerkId: id,
+      email: email,
+      name: fullName,
+      provider: provider,
+      googleId: googleId,
+      profileImage: image_url || null,
+      emailVerified: emailVerified,
+      lastSeen: new Date()
+    });
 
-  await user.save();
-  console.log('User created:', user.email);
+    await user.save();
+    console.log('User created successfully:', email);
+  } catch (error) {
+    // Handle duplicate key errors gracefully
+    if (error.code === 11000) {
+      console.log('User already exists, attempting update instead');
+      await handleUserUpdated(userData);
+    } else {
+      throw error;
+    }
+  }
 }
 
 async function handleUserUpdated(userData) {
-  const { id, email_addresses, first_name, last_name, image_url } = userData;
+  const { 
+    id, 
+    email_addresses, 
+    first_name, 
+    last_name, 
+    image_url,
+    primary_email_address_id 
+  } = userData;
   
-  console.log('Handling user.updated - ID:', id);  // Log for debug
+  console.log('Handling user.updated - ID:', id);
   
-  const primaryEmail = email_addresses.find(email => email.id === userData.primary_email_address_id);
+  // Get email address - handle empty array case
+  let email = null;
+  if (email_addresses && email_addresses.length > 0) {
+    const primaryEmail = email_addresses.find(
+      emailObj => emailObj.id === primary_email_address_id
+    );
+    email = primaryEmail?.email_address || email_addresses[0]?.email_address;
+  }
   
-  await User.findOneAndUpdate(
+  // Build name - handle null values
+  const firstName = first_name || '';
+  const lastName = last_name || '';
+  const fullName = `${firstName} ${lastName}`.trim();
+  
+  // Check if email is verified
+  let emailVerified = false;
+  if (email_addresses && email_addresses.length > 0) {
+    const primaryEmail = email_addresses.find(
+      emailObj => emailObj.id === primary_email_address_id
+    );
+    emailVerified = primaryEmail?.verification?.status === 'verified';
+  }
+  
+  // Build update object - only include fields that exist
+  const updateData = {
+    lastSeen: new Date()
+  };
+  
+  if (email) updateData.email = email;
+  if (fullName) updateData.name = fullName;
+  if (image_url !== undefined) updateData.profileImage = image_url;
+  updateData.emailVerified = emailVerified;
+  
+  const result = await User.findOneAndUpdate(
     { clerkId: id },
-    {
-      email: primaryEmail?.email_address,
-      name: `${first_name || ''} ${last_name || ''}`.trim(),
-      profileImage: image_url,
-      emailVerified: primaryEmail?.verification?.status === 'verified'
-    },
-    { new: true }  // Return updated document
+    updateData,
+    { new: true }
   );
   
-  console.log('User updated:', primaryEmail?.email_address);
+  if (result) {
+    console.log('User updated successfully:', email || id);
+  } else {
+    console.log('User not found for update, may need to create:', id);
+  }
 }
 
 async function handleUserDeleted(userData) {
   const { id } = userData;
   
-  console.log('Handling user.deleted - ID:', id);  // Log for debug
+  console.log('Handling user.deleted - ID:', id);
   
   const result = await User.findOneAndDelete({ clerkId: id });
   if (result) {
-    console.log('User deleted:', id);
+    console.log('User deleted successfully:', id);
   } else {
     console.log('User not found for deletion:', id);
   }
