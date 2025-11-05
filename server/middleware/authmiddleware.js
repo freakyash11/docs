@@ -1,5 +1,5 @@
 import { verifyToken } from '@clerk/backend';
-import User from '../models/User.js';  // Import User model
+import User from '../models/User.js';
 
 const authMiddleware = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -16,31 +16,32 @@ const authMiddleware = async (req, res, next) => {
       clockSkewInSeconds: 60
     });
 
-    const clerkId = payload.sub;  // Clerk ID from payload.sub
-    console.log('Token verified - clerkId:', clerkId);  // Optional log for debug
+    const clerkId = payload.sub;
+    console.log('Token verified - clerkId:', clerkId);
 
-    // Find or create user based on clerkId
+    // Find or create user
     let user = await User.findOne({ clerkId });
     if (!user) {
       // Auto-create on first login
+      const inferredProvider = payload.sub.startsWith('user_') ? 'email' : (payload.sub.startsWith('google_') ? 'google' : 'email');  // Fixed: Map 'user_' to 'email'
+
       user = new User({
         clerkId: clerkId,
-        name: payload.name || 'New User',  // From Clerk payload
+        name: payload.name || 'New User',
         email: payload.email || 'no-email@example.com',
-        emailVerified: payload.email_verified || false,  // From payload
-        provider: payload.sub.split('_')[0] || 'email',  // Infer from clerkId (e.g., 'user_' -> 'email')
+        emailVerified: payload.email_verified || false,
+        provider: inferredProvider,  // Now 'email' for 'user_', 'google' for 'google_'
         lastSeen: new Date()
       });
       await user.save();
-      console.log('New user created with clerkId:', clerkId);
+      console.log('New user created:', clerkId, '- Provider:', inferredProvider);
     } else {
-      // Update lastSeen on login
       user.lastSeen = new Date();
       await user.save();
     }
 
-    req.userId = clerkId;  // Attach clerkId for routes
-    req.user = user;  // Attach full user object (optional)
+    req.userId = clerkId;
+    req.user = user;
     next();
   } catch (error) {
     console.error('Token verification error:', error.message);
