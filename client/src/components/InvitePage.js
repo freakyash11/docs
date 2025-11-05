@@ -42,7 +42,7 @@ const InvitePage = () => {
   const acceptInvitation = async () => {
     try {
       const jwtToken = await getToken();  // JWT for Authorization header
-      const response = await fetch(`${backendUrl}/api/invite/accept/${invitationToken}`, {  // invitationToken in URL
+      const response = await fetch(`${backendUrl}/api/invite/${invitationToken}/accept`, {  // invitationToken in URL
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${jwtToken}`  // JWT in header
