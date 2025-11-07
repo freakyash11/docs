@@ -1,5 +1,4 @@
-import { verifyToken } from '@clerk/backend';
-import clerkClient from '@clerk/backend';  // Default import for v1.x
+import { verifyToken, createClerkClient } from '@clerk/backend';  // Named imports for latest v4+
 import User from '../models/User.js';
 
 const authMiddleware = async (req, res, next) => {
@@ -10,11 +9,13 @@ const authMiddleware = async (req, res, next) => {
 
   const token = authHeader.split(' ')[1];
   try {
+    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });  // Initialize client
+
     const payload = await verifyToken(token, {
       jwtKey: process.env.CLERK_JWT_VERIFICATION_KEY,
       authorizedParties: ['https://docsy-client.vercel.app', 'http://localhost:3000'],
       issuer: 'https://ethical-javelin-15.clerk.accounts.dev',
-      clockSkewInSec: 10  // Fixed: 'Sec' not 'Seconds'
+      clockSkewInSeconds: 10
     });
 
     const clerkId = payload.sub;
@@ -25,7 +26,7 @@ const authMiddleware = async (req, res, next) => {
       // Fetch full user data from Clerk if payload is incomplete
       let fullUser;
       try {
-        fullUser = await clerkClient.users.getUser(clerkId);
+        fullUser = await clerk.users.getUser(clerkId);  // Use initialized client
       } catch (fetchError) {
         console.warn('Failed to fetch full user from Clerk:', fetchError.message);
         fullUser = null;
