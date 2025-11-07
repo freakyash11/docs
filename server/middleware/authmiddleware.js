@@ -23,36 +23,49 @@ const authMiddleware = async (req, res, next) => {
     // Find or create user
     let user = await User.findOne({ clerkId });
     if (!user) {
-      // Fetch full user data from Clerk if payload is incomplete
-      let fullUser;
-      try {
-        fullUser = await clerk.users.getUser(clerkId);  // Use initialized client
-      } catch (fetchError) {
-        console.warn('Failed to fetch full user from Clerk:', fetchError.message);
-        fullUser = null;
-      }
+  // Fetch full user data from Clerk if payload is incomplete
+  let fullUser;
+  try {
+    fullUser = await clerk.users.getUser(clerkId);
+    console.log('Full user fetched from Clerk:', fullUser ? 'Success' : 'Null');  // Log fetch result
+    if (fullUser) {
+      console.log('Full user name:', fullUser.firstName, fullUser.lastName);  // Debug name
+      console.log('Full user email:', fullUser.emailAddresses?.[0]?.emailAddress);  // Debug email
+    }
+  } catch (fetchError) {
+    console.warn('Failed to fetch full user from Clerk:', fetchError.message);
+    fullUser = null;
+  }
 
-      const name = fullUser?.firstName && fullUser?.lastName 
-        ? `${fullUser.firstName} ${fullUser.lastName}`.trim() 
-        : payload.name || 'New User';
+  // Robust fallback: Prioritize fullUser, then payload, then defaults
+  const firstName = fullUser?.firstName || payload.first_name || '';
+  const lastName = fullUser?.lastName || payload.last_name || payload.family_name || '';  // family_name as fallback
+  const name = `${firstName} ${lastName}`.trim() || payload.name || 'New User';
 
-      const email = fullUser?.emailAddresses[0]?.emailAddress || payload.email || 'no-email@example.com';
+  const email = fullUser?.emailAddresses?.[0]?.emailAddress || payload.email || 'no-email@example.com';
 
-      const inferredProvider = payload.sub.startsWith('user_') ? 'email' : (payload.sub.startsWith('google_') ? 'google' : 'email');
+  const emailVerified = fullUser?.emailAddresses?.[0]?.verification?.status === 'verified' 
+    ? true 
+    : (payload.email_verified || false);
 
-      user = new User({
-        clerkId: clerkId,
-        name: name,
-        email: email,
-        emailVerified: fullUser?.emailAddresses[0]?.verification?.status === 'verified' || false,
-        provider: inferredProvider,
-        profileImage: fullUser?.profileImageUrl || null,
-        lastSeen: new Date()
-      });
+  const inferredProvider = payload.sub.startsWith('user_') ? 'email' 
+    : (payload.sub.startsWith('google_') ? 'google' : 'email');
 
-      await user.save();
-      console.log('New user created with full data:', clerkId, '- Name:', name, 'Email:', email);
-    } else {
+  const profileImage = fullUser?.profileImageUrl || payload.picture || payload.image_url || null;
+
+  user = new User({
+    clerkId: clerkId,
+    name: name,
+    email: email,
+    emailVerified: emailVerified,
+    provider: inferredProvider,
+    profileImage: profileImage,
+    lastSeen: new Date()
+  });
+
+  await user.save();
+  console.log('New user created with full data:', clerkId, '- Name:', name, 'Email:', email);
+} else {
       user.lastSeen = new Date();
       await user.save();
     }
