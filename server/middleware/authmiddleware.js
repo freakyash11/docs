@@ -1,5 +1,5 @@
 import { verifyToken } from '@clerk/backend';
-import { clerkClient } from '@clerk/backend';  
+import clerkClient from '@clerk/backend';  // Default import for v1.x
 import User from '../models/User.js';
 
 const authMiddleware = async (req, res, next) => {
@@ -14,7 +14,7 @@ const authMiddleware = async (req, res, next) => {
       jwtKey: process.env.CLERK_JWT_VERIFICATION_KEY,
       authorizedParties: ['https://docsy-client.vercel.app', 'http://localhost:3000'],
       issuer: 'https://ethical-javelin-15.clerk.accounts.dev',
-      clockSkewInSeconds: 10
+      clockSkewInSec: 10  // Fixed: 'Sec' not 'Seconds'
     });
 
     const clerkId = payload.sub;
