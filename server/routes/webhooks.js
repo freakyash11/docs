@@ -1,5 +1,5 @@
 import express from 'express';
-import { default as clerkClient } from '@clerk/backend';  // Default import for v1.x
+import clerkClient from '@clerk/backend';  // Default import for v1.x
 import User from '../models/User.js';
 
 const router = express.Router();
