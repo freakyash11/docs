@@ -1,13 +1,8 @@
 import express from 'express';
-import { createClerkClient } from '@clerk/backend';  // New import
+import { default as clerkClient } from '@clerk/backend';  // Default import for v1.x
 import User from '../models/User.js';
 
 const router = express.Router();
-
-// Create Clerk client (uses CLERK_SECRET_KEY env var)
-const clerk = createClerkClient({
-  secretKey: process.env.CLERK_SECRET_KEY
-});
 
 // Webhook endpoint
 router.post('/clerk-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -16,7 +11,7 @@ router.post('/clerk-webhook', express.raw({ type: 'application/json' }), async (
 
     // Verify with Clerk SDK (auto-handles Svix)
     const body = req.body.toString();
-    const event = clerk.webhooks.verify(body, req.headers);  // New method
+    const event = clerkClient.webhooks.verify(body, req.headers);  // Uses CLERK_SECRET_KEY
 
     const { type, data } = event;
     console.log(`Webhook type: ${type}, User ID: ${data.id}`);  // Log event
@@ -45,7 +40,7 @@ router.post('/clerk-webhook', express.raw({ type: 'application/json' }), async (
   }
 });
 
-// Handler functions
+// Handler functions (keep as is from your code)
 async function handleUserCreated(userData) {
   const { id, email_addresses, first_name, last_name, external_accounts, image_url, family_name } = userData;
   
@@ -99,7 +94,7 @@ async function handleUserDeleted(userData) {
   
   const result = await User.findOneAndDelete({ clerkId: id });
   if (result) {
-    console.log('User deleted:', result.email);
+    console.log('User deleted:', id);
   } else {
     console.log('User not found for deletion:', id);
   }
