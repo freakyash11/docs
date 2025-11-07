@@ -1,71 +1,26 @@
 import express from 'express';
-import crypto from 'crypto';
+import { createClerkClient } from '@clerk/backend';  // New import
 import User from '../models/User.js';
 
 const router = express.Router();
 
+// Create Clerk client (uses CLERK_SECRET_KEY env var)
+const clerk = createClerkClient({
+  secretKey: process.env.CLERK_SECRET_KEY
+});
+
 // Webhook endpoint
 router.post('/clerk-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
-  
-  if (!WEBHOOK_SECRET) {
-    return res.status(500).json({ error: 'Webhook secret not configured' });
-  }
-
-  const headers = req.headers;
-  const payload = req.body;
-
-  // Verify webhook signature using crypto
-  const svix_id = headers['svix-id'];
-  const svix_timestamp = headers['svix-timestamp'];
-  const svix_signature = headers['svix-signature'];
-
-  if (!svix_id || !svix_timestamp || !svix_signature) {
-    return res.status(400).json({ error: 'Missing svix headers' });
-  }
-
-  const body = payload.toString();
-  const secret = WEBHOOK_SECRET.split('_')[1]; // Remove 'whsec_' prefix
-  const secretBytes = Buffer.from(secret, 'base64');
-  
-  const signedPayload = `${svix_id}.${svix_timestamp}.${body}`;
-  const expectedSignature = crypto
-    .createHmac('sha256', secretBytes)
-    .update(signedPayload)
-    .digest('base64');
-
-  const signatures = svix_signature.split(' ');
-  let isValid = false;
-  
-  for (const sig of signatures) {
-    const [version, signature] = sig.split(',');
-    if (version === 'v1') {
-      if (crypto.timingSafeEqual(
-        Buffer.from(signature, 'base64'),
-        Buffer.from(expectedSignature, 'base64')
-      )) {
-        isValid = true;
-        break;
-      }
-    }
-  }
-
-  if (!isValid) {
-    return res.status(400).json({ error: 'Invalid signature' });
-  }
-
-  let evt;
   try {
-    evt = JSON.parse(body);
-  } catch (err) {
-    return res.status(400).json({ error: 'Invalid JSON' });
-  }
+    console.log('Webhook received - body length:', req.body.length);  // Log incoming
 
-  const { type, data } = evt;
+    // Verify with Clerk SDK (auto-handles Svix)
+    const body = req.body.toString();
+    const event = clerk.webhooks.verify(body, req.headers);  // New method
 
-  console.log(`Webhook received: ${type} for user ID: ${data.id}`);
+    const { type, data } = event;
+    console.log(`Webhook type: ${type}, User ID: ${data.id}`);  // Log event
 
-  try {
     switch (type) {
       case 'user.created':
         await handleUserCreated(data);
@@ -85,169 +40,56 @@ router.post('/clerk-webhook', express.raw({ type: 'application/json' }), async (
 
     res.status(200).json({ received: true });
   } catch (error) {
-    console.error('Webhook processing error:', error);
+    console.error('Webhook error:', error.message);
     res.status(500).json({ error: 'Webhook processing failed' });
   }
 });
 
-// Helper function to determine provider
-function getProvider(external_accounts) {
-  if (!external_accounts || external_accounts.length === 0) {
-    return 'email';
-  }
-  
-  const account = external_accounts[0];
-  const provider = account.provider?.toLowerCase();
-  
-  // Map provider to User schema enum values
-  if (['google', 'github', 'discord'].includes(provider)) {
-    return provider;
-  }
-  
-  return 'email';
-}
-
-// Helper function to get provider ID
-function getProviderId(external_accounts, providerName) {
-  if (!external_accounts || external_accounts.length === 0) {
-    return null;
-  }
-  
-  const account = external_accounts.find(
-    acc => acc.provider?.toLowerCase() === providerName
-  );
-  
-  return account?.provider_user_id || null;
-}
-
 // Handler functions
 async function handleUserCreated(userData) {
-  const { 
-    id, 
-    email_addresses, 
-    first_name, 
-    last_name, 
-    external_accounts, 
-    image_url,
-    primary_email_address_id 
-  } = userData;
+  const { id, email_addresses, first_name, last_name, external_accounts, image_url, family_name } = userData;
   
-  console.log('Handling user.created - ID:', id);
-  
-  // Get email address - handle empty array case
-  let email = null;
-  if (email_addresses && email_addresses.length > 0) {
-    const primaryEmail = email_addresses.find(
-      emailObj => emailObj.id === primary_email_address_id
-    );
-    email = primaryEmail?.email_address || email_addresses[0]?.email_address;
-  }
-  
-  // Determine provider and get provider ID
-  const provider = getProvider(external_accounts);
-  const googleId = getProviderId(external_accounts, 'google');
-  
-  // Build name - handle null values
-  const firstName = first_name || '';
-  const lastName = last_name || '';
-  const fullName = `${firstName} ${lastName}`.trim() || 'User';
-  
-  // Check if email is verified
-  let emailVerified = false;
-  if (email_addresses && email_addresses.length > 0) {
-    const primaryEmail = email_addresses.find(
-      emailObj => emailObj.id === primary_email_address_id
-    );
-    emailVerified = primaryEmail?.verification?.status === 'verified';
-  }
-  
-  // Validate required fields before creating
-  if (!email) {
-    console.error('Cannot create user: email is missing');
-    throw new Error('Email is required to create user');
-  }
-  
-  try {
-    const user = new User({
-      clerkId: id,
-      email: email,
-      name: fullName,
-      provider: provider,
-      googleId: googleId,
-      profileImage: image_url || null,
-      emailVerified: emailVerified,
-      lastSeen: new Date()
-    });
+  console.log('Handling user.created - ID:', id, 'Email:', email_addresses?.[0]?.email_address);
 
-    await user.save();
-    console.log('User created successfully:', email);
-  } catch (error) {
-    // Handle duplicate key errors gracefully
-    if (error.code === 11000) {
-      console.log('User already exists, attempting update instead');
-      await handleUserUpdated(userData);
-    } else {
-      throw error;
-    }
-  }
+  const primaryEmail = email_addresses.find(email => email.id === userData.primary_email_address_id);
+  const googleAccount = external_accounts?.find(account => account.provider === 'google');
+
+  const fullName = family_name ? family_name : `${first_name || ''} ${last_name || ''}`.trim() || 'Unknown User';
+
+  const user = new User({
+    clerkId: id,
+    email: primaryEmail?.email_address,
+    name: fullName,
+    provider: googleAccount ? 'google' : 'email',
+    googleId: googleAccount?.provider_user_id || null,
+    profileImage: image_url,
+    emailVerified: primaryEmail?.verification?.status === 'verified'
+  });
+
+  await user.save();
+  console.log('User created:', user.email);
 }
 
 async function handleUserUpdated(userData) {
-  const { 
-    id, 
-    email_addresses, 
-    first_name, 
-    last_name, 
-    image_url,
-    primary_email_address_id 
-  } = userData;
+  const { id, email_addresses, first_name, last_name, image_url, family_name } = userData;
   
   console.log('Handling user.updated - ID:', id);
-  
-  // Get email address - handle empty array case
-  let email = null;
-  if (email_addresses && email_addresses.length > 0) {
-    const primaryEmail = email_addresses.find(
-      emailObj => emailObj.id === primary_email_address_id
-    );
-    email = primaryEmail?.email_address || email_addresses[0]?.email_address;
-  }
-  
-  // Build name - handle null values
-  const firstName = first_name || '';
-  const lastName = last_name || '';
-  const fullName = `${firstName} ${lastName}`.trim();
-  
-  // Check if email is verified
-  let emailVerified = false;
-  if (email_addresses && email_addresses.length > 0) {
-    const primaryEmail = email_addresses.find(
-      emailObj => emailObj.id === primary_email_address_id
-    );
-    emailVerified = primaryEmail?.verification?.status === 'verified';
-  }
-  
-  // Build update object - only include fields that exist
-  const updateData = {
-    lastSeen: new Date()
-  };
-  
-  if (email) updateData.email = email;
-  if (fullName) updateData.name = fullName;
-  if (image_url !== undefined) updateData.profileImage = image_url;
-  updateData.emailVerified = emailVerified;
-  
-  const result = await User.findOneAndUpdate(
+
+  const primaryEmail = email_addresses.find(email => email.id === userData.primary_email_address_id);
+  const fullName = family_name ? family_name : `${first_name || ''} ${last_name || ''}`.trim();
+
+  await User.findOneAndUpdate(
     { clerkId: id },
-    updateData,
+    {
+      email: primaryEmail?.email_address,
+      name: fullName,
+      profileImage: image_url,
+      emailVerified: primaryEmail?.verification?.status === 'verified'
+    },
     { new: true }
   );
-  
-  if (result) {
-    console.log('User updated successfully:', email || id);
-  } else {
-    console.log('User not found for update, may need to create:', id);
-  }
+
+  console.log('User updated:', primaryEmail?.email_address);
 }
 
 async function handleUserDeleted(userData) {
@@ -257,7 +99,7 @@ async function handleUserDeleted(userData) {
   
   const result = await User.findOneAndDelete({ clerkId: id });
   if (result) {
-    console.log('User deleted successfully:', id);
+    console.log('User deleted:', result.email);
   } else {
     console.log('User not found for deletion:', id);
   }
