@@ -1,4 +1,5 @@
 import { verifyToken } from '@clerk/backend';
+import { clerkClient } from '@clerk/backend';  
 import User from '../models/User.js';
 
 const authMiddleware = async (req, res, next) => {
@@ -13,28 +14,43 @@ const authMiddleware = async (req, res, next) => {
       jwtKey: process.env.CLERK_JWT_VERIFICATION_KEY,
       authorizedParties: ['https://docsy-client.vercel.app', 'http://localhost:3000'],
       issuer: 'https://ethical-javelin-15.clerk.accounts.dev',
-      clockSkewInSeconds: 60
+      clockSkewInSeconds: 10
     });
 
     const clerkId = payload.sub;
-    console.log('Token verified - clerkId:', clerkId);
 
     // Find or create user
     let user = await User.findOne({ clerkId });
     if (!user) {
-      // Auto-create on first login
-      const inferredProvider = payload.sub.startsWith('user_') ? 'email' : (payload.sub.startsWith('google_') ? 'google' : 'email');  // Fixed: Map 'user_' to 'email'
+      // Fetch full user data from Clerk if payload is incomplete
+      let fullUser;
+      try {
+        fullUser = await clerkClient.users.getUser(clerkId);
+      } catch (fetchError) {
+        console.warn('Failed to fetch full user from Clerk:', fetchError.message);
+        fullUser = null;
+      }
+
+      const name = fullUser?.firstName && fullUser?.lastName 
+        ? `${fullUser.firstName} ${fullUser.lastName}`.trim() 
+        : payload.name || 'New User';
+
+      const email = fullUser?.emailAddresses[0]?.emailAddress || payload.email || 'no-email@example.com';
+
+      const inferredProvider = payload.sub.startsWith('user_') ? 'email' : (payload.sub.startsWith('google_') ? 'google' : 'email');
 
       user = new User({
         clerkId: clerkId,
-        name: payload.name || 'New User',
-        email: payload.email || 'no-email@example.com',
-        emailVerified: payload.email_verified || false,
-        provider: inferredProvider,  // Now 'email' for 'user_', 'google' for 'google_'
+        name: name,
+        email: email,
+        emailVerified: fullUser?.emailAddresses[0]?.verification?.status === 'verified' || false,
+        provider: inferredProvider,
+        profileImage: fullUser?.profileImageUrl || null,
         lastSeen: new Date()
       });
+
       await user.save();
-      console.log('New user created:', clerkId, '- Provider:', inferredProvider);
+      console.log('New user created with full data:', clerkId, '- Name:', name, 'Email:', email);
     } else {
       user.lastSeen = new Date();
       await user.save();
