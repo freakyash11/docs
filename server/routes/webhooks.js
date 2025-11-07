@@ -94,7 +94,7 @@ router.post('/clerk-webhook', express.raw({ type: 'application/json' }), async (
     console.error('Webhook processing error:', error);
     res.status(500).json({ error: 'Webhook processing failed' });
   }
-};
+});
 
 // Handler functions - Full Mongoose save for name/email
 async function handleUserCreated(userData) {
