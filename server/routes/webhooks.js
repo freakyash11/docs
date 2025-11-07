@@ -1,21 +1,77 @@
 import express from 'express';
-import clerkClient from '@clerk/backend';  // Default import for v1.x
+import crypto from 'crypto';
 import User from '../models/User.js';
 
 const router = express.Router();
 
 // Webhook endpoint
 router.post('/clerk-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
+  
+  if (!WEBHOOK_SECRET) {
+    console.error('Webhook secret missing');
+    return res.status(500).json({ error: 'Webhook secret not configured' });
+  }
+
+  const headers = req.headers;
+  const payload = req.body;
+
+  console.log('Webhook received - body length:', req.body.length);  // Confirm receipt
+
+  // Verify webhook signature using crypto
+  const svix_id = headers['svix-id'];
+  const svix_timestamp = headers['svix-timestamp'];
+  const svix_signature = headers['svix-signature'];
+
+  if (!svix_id || !svix_timestamp || !svix_signature) {
+    console.log('Missing Svix headers');
+    return res.status(400).json({ error: 'Missing svix headers' });
+  }
+
+  const body = payload.toString();
+  const secret = WEBHOOK_SECRET.split('_')[1]; // Remove 'whsec_' prefix
+  const secretBytes = Buffer.from(secret, 'base64');
+  
+  const signedPayload = `${svix_id}.${svix_timestamp}.${body}`;
+  const expectedSignature = crypto
+    .createHmac('sha256', secretBytes)
+    .update(signedPayload)
+    .digest('base64');
+
+  const signatures = svix_signature.split(' ');
+  let isValid = false;
+  
+  for (const sig of signatures) {
+    const [version, signature] = sig.split(',');
+    if (version === 'v1') {
+      if (crypto.timingSafeEqual(
+        Buffer.from(signature, 'base64'),
+        Buffer.from(expectedSignature, 'base64')
+      )) {
+        isValid = true;
+        console.log('Signature verified successfully');
+        break;
+      }
+    }
+  }
+
+  if (!isValid) {
+    console.log('Signature invalid - rejecting');
+    return res.status(400).json({ error: 'Invalid signature' });
+  }
+
+  let evt;
   try {
-    console.log('Webhook received - body length:', req.body.length);  // Log incoming
+    evt = JSON.parse(body);
+    console.log('Payload parsed - type:', evt.type, 'user ID: evt.data.id');  // Log payload
+  } catch (err) {
+    console.log('JSON parse error:', err.message);
+    return res.status(400).json({ error: 'Invalid JSON' });
+  }
 
-    // Verify with Clerk SDK (auto-handles Svix)
-    const body = req.body.toString();
-    const event = clerkClient.webhooks.verify(body, req.headers);  // Uses CLERK_SECRET_KEY
+  const { type, data } = evt;
 
-    const { type, data } = event;
-    console.log(`Webhook type: ${type}, User ID: ${data.id}`);  // Log event
-
+  try {
     switch (type) {
       case 'user.created':
         await handleUserCreated(data);
@@ -35,12 +91,12 @@ router.post('/clerk-webhook', express.raw({ type: 'application/json' }), async (
 
     res.status(200).json({ received: true });
   } catch (error) {
-    console.error('Webhook error:', error.message);
+    console.error('Webhook processing error:', error);
     res.status(500).json({ error: 'Webhook processing failed' });
   }
-});
+};
 
-// Handler functions (keep as is from your code)
+// Handler functions - Full Mongoose save for name/email
 async function handleUserCreated(userData) {
   const { id, email_addresses, first_name, last_name, external_accounts, image_url, family_name } = userData;
   
@@ -51,18 +107,22 @@ async function handleUserCreated(userData) {
 
   const fullName = family_name ? family_name : `${first_name || ''} ${last_name || ''}`.trim() || 'Unknown User';
 
-  const user = new User({
-    clerkId: id,
-    email: primaryEmail?.email_address,
-    name: fullName,
-    provider: googleAccount ? 'google' : 'email',
-    googleId: googleAccount?.provider_user_id || null,
-    profileImage: image_url,
-    emailVerified: primaryEmail?.verification?.status === 'verified'
-  });
+  // Upsert: Create or update user
+  const user = await User.findOneAndUpdate(
+    { clerkId: id },
+    {
+      clerkId: id,
+      email: primaryEmail?.email_address,
+      name: fullName,
+      provider: googleAccount ? 'google' : 'email',
+      googleId: googleAccount?.provider_user_id || null,
+      profileImage: image_url,
+      emailVerified: primaryEmail?.verification?.status === 'verified'
+    },
+    { upsert: true, new: true }  // Create if not exists, return updated
+  );
 
-  await user.save();
-  console.log('User created:', user.email);
+  console.log('User created/updated:', user.email, '- Name:', user.name);
 }
 
 async function handleUserUpdated(userData) {
@@ -92,12 +152,8 @@ async function handleUserDeleted(userData) {
   
   console.log('Handling user.deleted - ID:', id);
   
-  const result = await User.findOneAndDelete({ clerkId: id });
-  if (result) {
-    console.log('User deleted:', id);
-  } else {
-    console.log('User not found for deletion:', id);
-  }
+  await User.findOneAndDelete({ clerkId: id });
+  console.log('User deleted:', id);
 }
 
 export default router;
