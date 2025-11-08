@@ -40,26 +40,27 @@ const InvitePage = () => {
   };
 
   const acceptInvitation = async () => {
-    try {
-      const jwtToken = await getToken();  // JWT for Authorization header
-      const response = await fetch(`${backendUrl}/api/invite/${invitationToken}/accept`, {  // invitationToken in URL
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${jwtToken}`  // JWT in header
-        }
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to accept invitation');
+  try {
+    const jwtToken = await getToken();
+    const response = await fetch(`${backendUrl}/api/invite/${invitationToken}/accept`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${jwtToken}`
       }
+    });
+    const data = await response.json();
 
-      console.log('Invitation accepted:', data);
-      navigate(data.redirectTo || '/dashboard');
-    } catch (err) {
-      setError(err.message);
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to accept invitation');
     }
-  };
+
+    // Save role for TextEditor
+    localStorage.setItem('currentRole', data.role);  // Or use context/state
+    navigate(data.redirectTo || '/dashboard');
+  } catch (err) {
+    setError(err.message);
+  }
+};
 
   if (loading) {
     return <div className="flex justify-center items-center h-screen">Loading invitation...</div>;

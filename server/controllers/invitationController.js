@@ -317,27 +317,40 @@ export const validateInvitation = async (req, res) => {
 export const acceptInvitation = async (req, res) => {
   try {
     const { token } = req.params;
-    const userId = req.userId; // From auth middleware (Clerk ID)
+    const userId = req.userId;  // Clerk ID
 
     console.log('acceptInvitation called - token:', token, 'userId:', userId);
-    
+
     if (!token) {
       return res.status(400).json({ error: 'Token is required' });
     }
-    
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
     // Find user by Clerk ID
     const user = await User.findOne({ clerkId: userId });
-    console.log('User query result:', user ? 'Found' : 'Not found');
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     // Find invitation by token
     const invitation = await Invitation.findByToken(token);
     if (!invitation) {
-      return res.status(404).json({ error: 'Invitation not found' });
+      return res.status(404).json({ error: 'Invitation not found or invalid' });
     }
-    
+
+    // Check if expired
+    if (invitation.isExpired) {
+      return res.status(410).json({ error: 'Invitation has expired' });
+    }
+
+    // Check if already used
+    if (invitation.status !== 'pending') {
+      return res.status(400).json({ error: `Invitation has been ${invitation.status}` });
+    }
+
     // Strict email validation
     if (invitation.email.toLowerCase() !== user.email.toLowerCase()) {
       await invitation.incrementAttempts();
@@ -346,37 +359,29 @@ export const acceptInvitation = async (req, res) => {
         attempts: invitation.attempts
       });
     }
-    
-    // Validate invitation
-    if (!invitation.isValid) {
-      if (invitation.attempts >= 5) {
-        return res.status(403).json({ error: 'Too many failed attempts. Invitation expired' });
-      }
-      return res.status(400).json({ error: `Invitation is ${invitation.status}` });
-    }
-    
+
     // Accept invitation
     await invitation.accept();
-    
+
     // Add user as collaborator to document
     const document = await Document.findById(invitation.docId);
     if (!document) {
       return res.status(404).json({ error: 'Document not found' });
     }
-    
+
     // Check if already collaborator
     const existingCollab = document.collaborators.find(
       c => c.userId?.toString() === user._id.toString()
     );
-    
+
     if (!existingCollab) {
       document.collaborators.push({
         userId: user._id,
         email: user.email,
-        permission: invitation.role
+        permission: invitation.role  // Save role as permission
       });
       await document.save();
-      
+
       // Notify existing collaborators via socket
       const io = req.app.get('io');
       io.to(document._id.toString()).emit('collaborator-added', {
@@ -385,30 +390,22 @@ export const acceptInvitation = async (req, res) => {
         role: invitation.role
       });
     }
-    
-    console.log('✅ Invitation accepted:', {
+
+    console.log('Invitation accepted:', {
       invitationId: invitation._id,
       userId: user._id,
-      documentId: document._id
+      documentId: document._id,
+      role: invitation.role
     });
-    
+
     res.json({
       success: true,
       message: 'Invitation accepted successfully',
-      document: {
-        id: document._id,
-        title: document.title,
-        role: invitation.role
-      },
+      role: invitation.role,  // Send role to frontend
       redirectTo: `/documents/${document._id}`
     });
   } catch (error) {
     console.error('Accept invitation error:', error.message);
-    
-    if (error.message.includes('not pending') || error.message.includes('expired')) {
-      return res.status(400).json({ error: error.message });
-    }
-    
     res.status(500).json({ error: 'Failed to accept invitation' });
   }
 };

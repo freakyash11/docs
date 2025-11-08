@@ -20,7 +20,7 @@ const TOOLBAR_OPTIONS = [
   ["clean"],
 ]
 
-export default function TextEditor() {
+export default function TextEditor({ role = 'editor' }) {
   const { getToken } = useAuth();
   const { id: documentId } = useParams()
   const [title, setTitle] = useState("Untitled Document")
@@ -135,20 +135,20 @@ export default function TextEditor() {
   }, [getToken, backendUrl])
 
   useEffect(() => {
-    if (!socket) return
+    if (socket == null || quill == null) return
 
-    const tokenRefreshInterval = setInterval(async () => {
-      try {
-        const newToken = await getToken()
-        socket.emit('refresh-token', newToken)
-        console.log('Token refreshed and emitted')
-      } catch (error) {
-        console.error('Token refresh error:', error)
+    socket.once("load-document", (data) => {
+      quill.setContents(data.data);
+      if (role === 'viewer') {
+        quill.disable();  // Keep disabled for viewer
+        quill.setText(data.data || 'Loading...');
+      } else {
+        quill.enable();
       }
-    }, 30000)
+    });
 
-    return () => clearInterval(tokenRefreshInterval)
-  }, [socket, getToken])
+    socket.emit("get-document", documentId);
+  }, [socket, quill, documentId, role]);
 
   useEffect(() => {
     if (socket == null || quill == null) return
@@ -218,16 +218,16 @@ export default function TextEditor() {
   }, [socket, quill])
 
   useEffect(() => {
-    if (socket == null || quill == null) return
+    if (socket == null || quill == null || role === 'viewer') return;  // Skip for viewer
 
     const interval = setInterval(() => {
-      socket.emit("save-document", quill.getContents())
-    }, SAVE_INTERVAL_MS)
+      socket.emit("save-document", quill.getContents());
+    }, SAVE_INTERVAL_MS);
 
     return () => {
-      clearInterval(interval)
-    }
-  }, [socket, quill])
+      clearInterval(interval);
+    };
+  }, [socket, quill, role]);
 
   useEffect(() => {
     if (socket == null || quill == null) return
@@ -243,18 +243,18 @@ export default function TextEditor() {
   }, [socket, quill])
 
   useEffect(() => {
-    if (socket == null || quill == null) return
+    if (socket == null || quill == null || role === 'viewer') return;  // Skip for viewer
 
     const handler = (delta, oldDelta, source) => {
-      if (source !== "user") return
-      socket.emit("send-changes", delta)
-    }
-    quill.on("text-change", handler)
+      if (source !== "user") return;
+      socket.emit("send-changes", delta);
+    };
+    quill.on("text-change", handler);
 
     return () => {
-      quill.off("text-change", handler)
-    }
-  }, [socket, quill])
+      quill.off("text-change", handler);
+    };
+  }, [socket, quill, role]);
 
   const wrapperRef = useCallback(wrapper => {
     if (wrapper == null) return
