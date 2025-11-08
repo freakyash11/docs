@@ -67,30 +67,30 @@ function setupSocket(server, redis) {
           console.log('Authenticated user:', socket.userId, 'Role:', socket.userRole || 'unknown');
       }
 
-      socket.on("get-document", async (documentId) => {
-    console.log('get-document event received for ID:', documentId, 'From user:', socket.userId, 'Role:', socket.userRole);
-    try {
-      if (!documentId) {
-        socket.emit("load-document", { error: 'No document ID provided' });
-        return;
-      }
-
-      const document = await findOrCreateDocument(documentId);
-      socket.join(documentId);
-
-      // Send role-aware data
-      socket.emit("load-document", {
-        data: document.data,
-        role: socket.userRole || 'viewer'  // Default to viewer if not set
-      });
-      console.log('Emitted load-document with role:', socket.userRole);
-    } catch (error) {
-      console.error('Error in get-document handler:', error.message);
-      socket.emit("load-document", { error: 'Failed to load document' });
+    socket.on("get-document", async (documentId) => {
+  console.log('get-document event received for ID:', documentId, 'From user:', socket.userId);
+  try {
+    if (!documentId) {
+      socket.emit("load-document", { error: 'No document ID provided' });
+      return;
     }
-  });
 
-      socket.on("send-changes", (delta) => {
+    const document = await findOrCreateDocument(documentId);
+    console.log('Document loaded/created:', document._id, 'Title:', document.title, 'Data length:', document.data.length);
+
+    socket.join(documentId);
+    socket.emit("load-document", {
+      data: document.data,
+      title: document.title || 'Untitled Document'  // Emit title
+    });
+    console.log('Emitted load-document with title:', document.title);
+  } catch (error) {
+    console.error('Error in get-document handler:', error.message);
+    socket.emit("load-document", { error: 'Failed to load document' });
+  }
+});
+
+    socket.on("send-changes", (delta) => {
     if (socket.userRole === 'viewer') {
       console.log('Viewer edit attempt blocked:', socket.id);
       return;  // Block for viewer

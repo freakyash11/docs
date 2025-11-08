@@ -139,12 +139,8 @@ export default function TextEditor({ role = 'editor' }) {
 
     socket.once("load-document", (data) => {
       quill.setContents(data.data);
-      if (role === 'viewer') {
-        quill.disable();  // Keep disabled for viewer
-        quill.setText(data.data || 'Loading...');
-      } else {
-        quill.enable();
-      }
+      quill.enable();
+      setTitle(data.title || 'Untitled Document');  // Set title from response
     });
 
     socket.emit("get-document", documentId);
@@ -241,6 +237,12 @@ export default function TextEditor({ role = 'editor' }) {
       socket.off("receive-changes", handler)
     }
   }, [socket, quill])
+
+  useEffect(() => {
+    if (!socket || !documentId) return;
+
+    socket.emit("update-title", { title, documentId });
+  }, [title, socket, documentId]);
 
   useEffect(() => {
     if (socket == null || quill == null || role === 'viewer') return;  // Skip for viewer
