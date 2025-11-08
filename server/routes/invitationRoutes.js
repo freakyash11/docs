@@ -9,7 +9,7 @@ import {
   resendInvitation, 
   cleanupExpiredInvitations 
 } from '../controllers/invitationController.js';  // Adjust path to your controller file
-import authMiddleware from '../middleware/authMiddleware.js';
+import authMiddleware from '../middleware/authmiddleware.js';
 
 const router = express.Router();
 

@@ -6,7 +6,6 @@ import {
   getDocument,
   updateDocument,
   deleteDocument,
-  createInvitation  // Add this import if not already
 } from '../controllers/documentController.js';
 
 const router = express.Router();
@@ -29,7 +28,5 @@ router.patch('/:id', updateDocument);
 // DELETE /api/documents/:id - Delete document
 router.delete('/:id', deleteDocument);
 
-// POST /api/documents/:id/invite - Create invitation (new route)
-router.post('/:id/invite', createInvitation);
 
 export default router;
