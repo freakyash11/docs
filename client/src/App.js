@@ -14,9 +14,9 @@ import Dashboard from './components/Dashboard';
 import InvitePage from './components/InvitePage';
 //comment
 // Wrapper component to generate UUID only when the root route is rendered
-const NewDocumentRedirect = () => {
-  return <Navigate to={`/documents/${uuidV4()}`} replace />;
-};
+// const NewDocumentRedirect = () => {
+//   return <Navigate to={`/documents/${uuidV4()}`} replace />;
+// };
 
 function App() {
   return (

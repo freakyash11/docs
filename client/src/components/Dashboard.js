@@ -102,7 +102,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchDocuments();
-  }, []);
+  }, [fetchDocuments]);
 
   if (loading) {
     return (

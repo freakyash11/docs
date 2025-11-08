@@ -20,7 +20,7 @@ const InvitePage = () => {
     }
 
     fetchInvitation();
-  }, [invitationToken]);
+  }, [invitationToken, backendUrl]);
 
   const fetchInvitation = async () => {
     try {

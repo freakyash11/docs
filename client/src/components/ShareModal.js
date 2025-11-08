@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { X, Mail, Globe, Lock, UserPlus, Check, Trash2, Link2, Copy } from "lucide-react"
+import { X, Mail, Globe, Lock, UserPlus, Check, Trash2, Link2} from "lucide-react"
 
 export default function ShareModal({ 
   isOpen, 
