@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';  // Add useCallback
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth, RedirectToSignIn } from '@clerk/clerk-react';
 
@@ -12,17 +12,8 @@ const InvitePage = () => {
 
   const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
-  useEffect(() => {
-    if (!invitationToken) {
-      setError('Invalid invitation link');
-      setLoading(false);
-      return;
-    }
-
-    fetchInvitation();
-  }, [invitationToken, backendUrl]);
-
-  const fetchInvitation = async () => {
+  // Wrap in useCallback to make stable (fixes ESLint warning)
+  const fetchInvitation = useCallback(async () => {
     try {
       const response = await fetch(`${backendUrl}/api/invite/${invitationToken}`);
       const data = await response.json();
@@ -37,30 +28,39 @@ const InvitePage = () => {
       setError(err.message);
       setLoading(false);
     }
-  };
+  }, [backendUrl, invitationToken]);  // Deps: backendUrl and invitationToken
 
-  const acceptInvitation = async () => {
-  try {
-    const jwtToken = await getToken();
-    const response = await fetch(`${backendUrl}/api/invite/${invitationToken}/accept`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${jwtToken}`
-      }
-    });
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to accept invitation');
+  useEffect(() => {
+    if (!invitationToken) {
+      setError('Invalid invitation link');
+      setLoading(false);
+      return;
     }
 
-    // Save role for TextEditor
-    localStorage.setItem('currentRole', data.role);  // Or use context/state
-    navigate(data.redirectTo || '/dashboard');
-  } catch (err) {
-    setError(err.message);
-  }
-};
+    fetchInvitation();  // Now stable
+  }, [invitationToken, fetchInvitation]);  // Add fetchInvitation to deps - warning gone
+
+  const acceptInvitation = async () => {
+    try {
+      const jwtToken = await getToken();  // JWT for Authorization header
+      const response = await fetch(`${backendUrl}/api/invite/${invitationToken}/accept`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${jwtToken}`
+        }
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to accept invitation');
+      }
+
+      console.log('Invitation accepted:', data);
+      navigate(data.redirectTo || '/dashboard');
+    } catch (err) {
+      setError(err.message);
+    }
+  };
 
   if (loading) {
     return <div className="flex justify-center items-center h-screen">Loading invitation...</div>;
@@ -85,7 +85,7 @@ const InvitePage = () => {
   }
 
   return (
-    <div className="min-h-screens flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8">
         <h1 className="text-2xl font-bold text-center mb-4">Invitation to Collaborate</h1>
         <p className="text-gray-600 mb-4">You've been invited to {invitation.role} on "{invitation.documentTitle}" by {invitation.invitedBy}.</p>

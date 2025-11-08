@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';  // Add useCallback
 import { useAuth } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -12,8 +12,8 @@ export default function Dashboard() {
 
   const backendUrl = process.env.REACT_APP_BACKEND_URL || "http://localhost:3001";
 
-  // Fetch user's documents
-  const fetchDocuments = async () => {
+  // Wrap in useCallback to make stable (fixes warning)
+  const fetchDocuments = useCallback(async () => {
     try {
       const token = await getToken({ leewayInSeconds: 10 });
       const response = await fetch(`${backendUrl}/api/documents`, {
@@ -34,10 +34,10 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [backendUrl, getToken]);  // Deps: backendUrl and getToken
 
-  // Create new document
-  const createDocument = async () => {
+  // Create new document (add useCallback if used in useEffect)
+  const createDocument = useCallback(async () => {
     if (creating) return;
     
     setCreating(true);
@@ -64,10 +64,10 @@ export default function Dashboard() {
       setError(error.message);
       setCreating(false);
     }
-  };
+  }, [creating, backendUrl, getToken, navigate]);  // Deps for stability
 
-  // Delete document
-  const deleteDocument = async (docId) => {
+  // Delete document (add useCallback if used in useEffect)
+  const deleteDocument = useCallback(async (docId) => {
     if (!window.confirm('Are you sure you want to delete this document?')) {
       return;
     }
@@ -89,9 +89,9 @@ export default function Dashboard() {
     } catch (error) {
       setError(error.message);
     }
-  };
+  }, [documents, backendUrl, getToken]);  // Deps: documents, backendUrl, getToken
 
-  // Format date
+  // Format date (no useCallback needed, pure function)
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { 
@@ -102,7 +102,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchDocuments();
-  }, [fetchDocuments]);
+  }, [fetchDocuments]);  // Now stable - warning gone
 
   if (loading) {
     return (

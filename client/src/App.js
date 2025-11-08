@@ -5,7 +5,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import { v4 as uuidV4 } from "uuid";
+//import { v4 as uuidV4 } from "uuid";
 import { ClerkProvider } from "@clerk/clerk-react";
 import AuthPage from "./components/AuthPage";
 import ProtectedRoute from "./components/ProtectedRoute";
