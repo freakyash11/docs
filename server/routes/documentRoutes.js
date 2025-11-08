@@ -6,10 +6,8 @@ import {
   getDocument,
   updateDocument,
   deleteDocument,
-  updateDocumentTitle
+  createInvitation  // Add this import if not already
 } from '../controllers/documentController.js';
-import { createInvitation } from '../controllers/invitationController.js';
-import { getInvitationByToken, validateInvitation, acceptInvitation } from '../controllers/invitationController.js';
 
 const router = express.Router();
 
@@ -20,20 +18,18 @@ router.use(authMiddleware);
 router.post('/', createDocument);
 
 // GET /api/documents - Get user's documents
-console.log('Loading documentRoutes.js - start');
 router.get('/', getUserDocuments);
-console.log('Loading documentRoutes.js - end');
+
 // GET /api/documents/:id - Get single document
 router.get('/:id', getDocument);
 
 // PATCH /api/documents/:id - Update document metadata
-router.patch('/:id', updateDocumentTitle);
-
-router.put('/:id', updateDocument);
+router.patch('/:id', updateDocument);
 
 // DELETE /api/documents/:id - Delete document
 router.delete('/:id', deleteDocument);
 
-
+// POST /api/documents/:id/invite - Create invitation (new route)
+router.post('/:id/invite', createInvitation);
 
 export default router;
