@@ -23,7 +23,7 @@ export default function ShareModal({
   const handleResendInvite = async (inviteId) => {
     try {
       const token = await getToken()
-      const response = await fetch(`${backendUrl}/api/invitations/${inviteId}/resend`, {
+      const response = await fetch(`${backendUrl}/api/invite/${inviteId}/resend`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -58,7 +58,7 @@ export default function ShareModal({
   const handleRevokeInvite = async (inviteId) => {
     try {
       const token = await getToken()
-      const response = await fetch(`${backendUrl}/api/invitations/${inviteId}/revoke`, {
+      const response = await fetch(`${backendUrl}/api/invite/${inviteId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -112,7 +112,7 @@ export default function ShareModal({
       
       try {
         const token = await getToken()
-        const response = await fetch(`${backendUrl}/api/documents/${documentId}/invitations?status=pending`, {
+        const response = await fetch(`${backendUrl}/api/invite/${documentId}/invitations?status=pending`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -137,7 +137,7 @@ export default function ShareModal({
       setError("")
       const token = await getToken()
 
-      const response = await fetch(`${backendUrl}/api/documents/${documentId}`, {
+      const response = await fetch(`${backendUrl}/api/invite/${documentId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -210,7 +210,7 @@ export default function ShareModal({
 
     try {
       const token = await getToken()
-      const response = await fetch(`${backendUrl}/api/documents/${documentId}/invite`, {
+      const response = await fetch(`${backendUrl}/api/invite/${documentId}/invite`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -14,7 +14,7 @@ import authMiddleware from '../middleware/authmiddleware.js';
 const router = express.Router();
 
 // POST /api/invite - Create invitation (from document page)
-router.post('/documents/:id/invite', createInvitation);
+router.post('/:id/invite', createInvitation);
 
 // GET /api/invite/:token - Fetch invitation details by token
 router.get('/:token', getInvitationByToken);
