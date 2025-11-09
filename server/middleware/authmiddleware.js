@@ -2,12 +2,14 @@ import { verifyToken, createClerkClient } from '@clerk/backend';  // Named impor
 import User from '../models/User.js';
 
 const authMiddleware = async (req, res, next) => {
+  console.log('Auth middleware called for route:', req.path);
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'No token provided' });
   }
 
   const token = authHeader.split(' ')[1];
+  console.log('Token length:', token.length);
   try {
     const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });  // Initialize client
 
@@ -19,6 +21,7 @@ const authMiddleware = async (req, res, next) => {
     });
 
     const clerkId = payload.sub;
+    console.log('Token verified - clerkId:', clerkId);
 
     // Find or create user
     let user = await User.findOne({ clerkId });
@@ -72,6 +75,7 @@ const authMiddleware = async (req, res, next) => {
 
     req.userId = clerkId;
     req.user = user;
+    console.log('Auth successful - req.userId set:', clerkId);
     next();
   } catch (error) {
     console.error('Token verification error:', error.message);

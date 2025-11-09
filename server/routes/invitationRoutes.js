@@ -12,7 +12,7 @@ import {
 import authMiddleware from '../middleware/authmiddleware.js';
 
 const router = express.Router();
-
+router.use(authMiddleware);
 // POST /api/invite - Create invitation (from document page)
 router.post('/:id/invite', createInvitation);
 
@@ -20,10 +20,10 @@ router.post('/:id/invite', createInvitation);
 router.get('/:token', getInvitationByToken);
 
 // POST /api/invite/:token/validate - Validate invitation (email match, etc.)
-router.post('/:token/validate', authMiddleware, validateInvitation);
+router.post('/:token/validate', validateInvitation);
 
 // POST /api/invite/:token/accept - Accept invitation
-router.post('/:token/accept', authMiddleware, acceptInvitation);
+router.post('/:token/accept', acceptInvitation);
 
 // DELETE /api/invite/:invitationId - Revoke invitation (owner only)
 router.delete('/:invitationId', revokeInvitation);
