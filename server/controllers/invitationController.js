@@ -91,6 +91,7 @@ export const createInvitation = async (req, res) => {
 
     // Find user by Clerk ID
     const user = await User.findOne({ clerkId: userId });
+    console.log('User query - clerkId:', userId, 'Result:', user ? 'Found' : 'Not found', '- DB _id:', user?._id);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }

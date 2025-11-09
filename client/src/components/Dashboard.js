@@ -23,9 +23,9 @@ export default function Dashboard() {
         credentials: 'include'
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch documents');
-      }
+      // if (!response.ok) {
+      //   throw new Error('Failed to fetch documents');
+      // }
 
       const data = await response.json();
       setDocuments(data.documents);
