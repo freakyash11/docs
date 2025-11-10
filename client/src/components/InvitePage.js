@@ -12,16 +12,6 @@ const InvitePage = () => {
 
   const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
-  useEffect(() => {
-    if (!invitationToken) {
-      setError('Invalid invitation link');
-      setLoading(false);
-      return;
-    }
-
-    fetchInvitation();
-  }, [invitationToken, fetchInvitation]);
-
   const fetchInvitation = useCallback(async () => {
     try {
       const response = await fetch(`${backendUrl}/api/invite/${invitationToken}`);
@@ -38,6 +28,17 @@ const InvitePage = () => {
       setLoading(false);
     }
   }, [backendUrl, invitationToken]);
+
+
+  useEffect(() => {
+    if (!invitationToken) {
+      setError('Invalid invitation link');
+      setLoading(false);
+      return;
+    }
+
+    fetchInvitation();
+  }, [invitationToken, fetchInvitation]);
 
   const acceptInvitation = async () => {
     try {
