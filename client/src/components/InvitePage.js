@@ -20,7 +20,7 @@ const InvitePage = () => {
     }
 
     fetchInvitation();
-  }, [invitationToken]);
+  }, [invitationToken, fetchInvitation]);
 
   const fetchInvitation = useCallback(async () => {
     try {
