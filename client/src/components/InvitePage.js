@@ -28,7 +28,7 @@ const InvitePage = () => {
       setError(err.message);
       setLoading(false);
     }
-  }, [backendUrl, invitationToken, navigate]);
+  }, [backendUrl, invitationToken]);
 
   useEffect(() => {
     if (!invitationToken) {
