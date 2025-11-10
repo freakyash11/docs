@@ -12,27 +12,27 @@ import {
 import authMiddleware from '../middleware/authmiddleware.js';
 
 const router = express.Router();
-router.use(authMiddleware);
+
 // POST /api/invite - Create invitation (from document page)
-router.post('/:id/invite', createInvitation);
+router.post('/:id/invite', authMiddleware,  createInvitation);
 
 // GET /api/invite/:token - Fetch invitation details by token
 router.get('/:token', getInvitationByToken);
 
 // POST /api/invite/:token/validate - Validate invitation (email match, etc.)
-router.post('/:token/validate', validateInvitation);
+router.post('/:token/validate', authMiddleware, validateInvitation);
 
 // POST /api/invite/:token/accept - Accept invitation
-router.post('/:token/accept', acceptInvitation);
+router.post('/:token/accept', authMiddleware, acceptInvitation);
 
 // DELETE /api/invite/:invitationId - Revoke invitation (owner only)
-router.delete('/:invitationId', revokeInvitation);
+router.delete('/:invitationId', authMiddleware, revokeInvitation);
 
 // GET /api/invite/documents/:documentId - Get all invitations for a document
-router.get('/documents/:documentId', getDocumentInvitations);
+router.get('/documents/:documentId', authMiddleware, getDocumentInvitations);
 
 // POST /api/invite/:invitationId/resend - Resend invitation
-router.post('/:invitationId/resend', resendInvitation);
+router.post('/:invitationId/resend', authMiddleware, resendInvitation);
 
 // GET /api/invite/cleanup - Cleanup expired invitations (admin/cron)
 router.get('/cleanup', cleanupExpiredInvitations);
