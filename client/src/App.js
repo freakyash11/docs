@@ -20,7 +20,7 @@ import InvitePage from './components/InvitePage';
 
 function App() {
   return (
-    <ClerkProvider publishableKey={process.env.REACT_APP_CLERK_PUBLISHABLE_KEY}>
+    <ClerkProvider publishableKey={process.env.REACT_APP_CLERK_PUBLISHABLE_KEY} routing="path">
     <Router>
       <Routes>
        <Route path="/" element={<Navigate to="/dashboard" />} />

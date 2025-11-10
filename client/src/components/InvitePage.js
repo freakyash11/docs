@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';  // Add useCallback
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth, RedirectToSignIn } from '@clerk/clerk-react';
+import { useAuth, RedirectToSignIn, RedirectToSignUp } from '@clerk/clerk-react';
 
 const InvitePage = () => {
-  const { token: invitationToken } = useParams();  // Invitation token from URL
+  const { token: invitationToken } = useParams();
   const { getToken, isSignedIn } = useAuth();
   const navigate = useNavigate();
   const [invitation, setInvitation] = useState(null);
@@ -12,7 +12,16 @@ const InvitePage = () => {
 
   const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
-  // Wrap in useCallback to make stable (fixes ESLint warning)
+  useEffect(() => {
+    if (!invitationToken) {
+      setError('Invalid invitation link');
+      setLoading(false);
+      return;
+    }
+
+    fetchInvitation();
+  }, [invitationToken]);
+
   const fetchInvitation = useCallback(async () => {
     try {
       const response = await fetch(`${backendUrl}/api/invite/${invitationToken}`);
@@ -28,21 +37,11 @@ const InvitePage = () => {
       setError(err.message);
       setLoading(false);
     }
-  }, [backendUrl, invitationToken]);  // Deps: backendUrl and invitationToken
-
-  useEffect(() => {
-    if (!invitationToken) {
-      setError('Invalid invitation link');
-      setLoading(false);
-      return;
-    }
-
-    fetchInvitation();  // Now stable
-  }, [invitationToken, fetchInvitation]);  // Add fetchInvitation to deps - warning gone
+  }, [backendUrl, invitationToken]);
 
   const acceptInvitation = async () => {
     try {
-      const jwtToken = await getToken();  // JWT for Authorization header
+      const jwtToken = await getToken();
       const response = await fetch(`${backendUrl}/api/invite/${invitationToken}/accept`, {
         method: 'POST',
         headers: {
@@ -88,17 +87,33 @@ const InvitePage = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8">
         <h1 className="text-2xl font-bold text-center mb-4">Invitation to Collaborate</h1>
-        <p className="text-gray-600 mb-4">You've been invited to {invitation.role} on "{invitation.documentTitle}" by {invitation.invitedBy}.</p>
+        <p className="text-gray-600 mb-4">
+          You've been invited to <strong>{invitation.role}</strong> on "<strong>{invitation.documentTitle}</strong>" by <strong>{invitation.invitedBy}</strong>.
+        </p>
+        <p className="text-sm text-gray-500 mb-6">This invitation is for {invitation.email}. Expires {new Date(invitation.expiresAt).toLocaleDateString()}.</p>
         
         {!isSignedIn ? (
-          <RedirectToSignIn afterSignInUrl={`/invite/${invitationToken}`} />
+          <div className="space-y-4">
+            <p className="text-gray-600">Sign up or sign in with the invited email to accept.</p>
+            <div className="space-y-2">
+              <RedirectToSignUp 
+                afterSignUpUrl={`/invite/${invitationToken}`} 
+                redirectUrl={`/invite/${invitationToken}`} 
+              />
+              <p className="text-sm text-gray-500">or</p>
+              <RedirectToSignIn 
+                afterSignInUrl={`/invite/${invitationToken}`} 
+                redirectUrl={`/invite/${invitationToken}`} 
+              />
+            </div>
+          </div>
         ) : (
           <>
             {error ? (
               <p className="text-red-600 mb-4">{error}</p>
             ) : (
               <div className="mb-4">
-                <p className="text-sm text-gray-500">This invitation is for {invitation.email}.</p>
+                <p className="text-sm text-gray-500">This invitation is for {invitation.email}. Your email matches.</p>
               </div>
             )}
             <button
@@ -110,10 +125,6 @@ const InvitePage = () => {
             </button>
           </>
         )}
-        
-        <div className="text-center mt-6 text-sm text-gray-500">
-          Expires {new Date(invitation.expiresAt).toLocaleDateString()}
-        </div>
       </div>
     </div>
   );
