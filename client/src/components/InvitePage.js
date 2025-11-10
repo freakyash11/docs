@@ -12,6 +12,7 @@ const InvitePage = () => {
 
   const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
+  // Stable fetchInvitation with useCallback
   const fetchInvitation = useCallback(async () => {
     try {
       const response = await fetch(`${backendUrl}/api/invite/${invitationToken}`);
@@ -20,16 +21,14 @@ const InvitePage = () => {
       if (!response.ok) {
         throw new Error(data.error || 'Failed to fetch invitation');
       }
-      localStorage.setItem('currentRole', data.role);  // Or use React Context
-      navigate(data.redirectTo || '/documents?role=' + data.role);  // Pass as query param
+
       setInvitation(data.invitation);
       setLoading(false);
     } catch (err) {
       setError(err.message);
       setLoading(false);
     }
-  }, [backendUrl, invitationToken]);
-
+  }, [backendUrl, invitationToken, navigate]);
 
   useEffect(() => {
     if (!invitationToken) {

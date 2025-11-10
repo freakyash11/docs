@@ -5,7 +5,7 @@ import { io } from "socket.io-client"
 import { useParams } from "react-router-dom"
 import { useAuth } from '@clerk/clerk-react'
 import { Share2 } from "lucide-react"
-import ShareModal from "./components/ShareModal"  // Import the ShareModal component
+import ShareModal from "./components/ShareModal"
 
 const SAVE_INTERVAL_MS = 2000
 const TOOLBAR_OPTIONS = [
@@ -22,31 +22,33 @@ const TOOLBAR_OPTIONS = [
 
 export default function TextEditor({ role = 'owner' }) {
   const { getToken } = useAuth();
-  const { id: documentId } = useParams()
-  const [title, setTitle] = useState("Untitled Document")
-  const [isEditingTitle, setIsEditingTitle] = useState(false)
-  const [saveStatus, setSaveStatus] = useState("")
-  const titleTimeoutRef = useRef(null)
-  const [socket, setSocket] = useState()
-  const [quill, setQuill] = useState()
-  const socketRef = useRef(null)
+  const { id: documentId } = useParams();
+  const [title, setTitle] = useState("Untitled Document");
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [saveStatus, setSaveStatus] = useState("");
+  const titleTimeoutRef = useRef(null);
+  const [socket, setSocket] = useState();
+  const [quill, setQuill] = useState();
+  const socketRef = useRef(null);
   
   // Share modal state
-  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [permissions, setPermissions] = useState({
     isPublic: false,
     collaborators: [],
     isOwner: false
-  })
-  const [userRole, setUserRole] = useState("editor") // "viewer" or "editor"
+  });
+  const [userRole, setUserRole] = useState(role || "editor");
 
-  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001'
+  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
   // Function to update document title via PATCH API
-  const updateDocumentTitle = async (newTitle) => {
+  const updateDocumentTitle = useCallback(async (newTitle) => {
+    if (userRole === "viewer") return;
+
     try {
-      setSaveStatus("saving")
-      const token = await getToken()
+      setSaveStatus("saving");
+      const token = await getToken();
       
       const response = await fetch(`${backendUrl}/api/documents/${documentId}`, {
         method: 'PATCH',
@@ -55,46 +57,46 @@ export default function TextEditor({ role = 'owner' }) {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ title: newTitle })
-      })
+      });
 
       if (!response.ok) {
-        throw new Error('Failed to update title')
+        throw new Error('Failed to update title');
       }
 
-      setSaveStatus("saved")
-      setTimeout(() => setSaveStatus(""), 2000)
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus(""), 2000);
     } catch (error) {
-      console.error('Error updating document title:', error)
-      setSaveStatus("")
+      console.error('Error updating document title:', error);
+      setSaveStatus("");
     }
-  }
+  }, [userRole, documentId, getToken, backendUrl]);
 
   // Debounced title update handler
-  const handleTitleChange = (e) => {
-    const newTitle = e.target.value
-    setTitle(newTitle)
+  const handleTitleChange = useCallback((e) => {
+    const newTitle = e.target.value;
+    setTitle(newTitle);
 
     if (titleTimeoutRef.current) {
-      clearTimeout(titleTimeoutRef.current)
+      clearTimeout(titleTimeoutRef.current);
     }
 
     titleTimeoutRef.current = setTimeout(() => {
-      updateDocumentTitle(newTitle)
-    }, 1000)
-  }
+      updateDocumentTitle(newTitle);
+    }, 1000);
+  }, [updateDocumentTitle]);
 
-  const handleTitleBlur = () => {
-    setIsEditingTitle(false)
+  const handleTitleBlur = useCallback(() => {
+    setIsEditingTitle(false);
     if (titleTimeoutRef.current) {
-      clearTimeout(titleTimeoutRef.current)
-      updateDocumentTitle(title)
+      clearTimeout(titleTimeoutRef.current);
+      updateDocumentTitle(title);
     }
-  }
+  }, [title, updateDocumentTitle]);
 
   useEffect(() => {
     const connectSocket = async () => {
       try {
-        const token = await getToken()
+        const token = await getToken();
         const s = io(backendUrl, {
           auth: { token },
           transports: ['websocket'],
@@ -105,120 +107,94 @@ export default function TextEditor({ role = 'owner' }) {
           reconnection: true,
           reconnectionAttempts: 10,
           forceNew: true
-        })
+        });
         
-        s.on('connect', () => console.log('Socket connected successfully!'))
+        s.on('connect', () => console.log('Socket connected successfully!'));
         s.on('connect_error', (err) => {
-          console.error('Socket connect error:', err.message)
-        })
-        s.on('disconnect', (reason) => console.log('Disconnect reason:', reason))
-        s.on('error', (err) => console.error('Socket error:', err))
+          console.error('Socket connect error:', err.message);
+        });
+        s.on('disconnect', (reason) => console.log('Disconnect reason:', reason));
+        s.on('error', (err) => console.error('Socket error:', err));
         
-        socketRef.current = s
-        setSocket(s)
+        socketRef.current = s;
+        setSocket(s);
       } catch (error) {
-        console.error('Failed to get token or connect socket:', error)
+        console.error('Failed to get token or connect socket:', error);
       }
-    }
+    };
     
-    connectSocket()
+    connectSocket();
 
     return () => {
       if (socketRef.current) {
-        socketRef.current.disconnect()
-        socketRef.current = null
+        socketRef.current.disconnect();
+        socketRef.current = null;
       }
       if (titleTimeoutRef.current) {
-        clearTimeout(titleTimeoutRef.current)
+        clearTimeout(titleTimeoutRef.current);
       }
-    }
-  }, [getToken, backendUrl])
+    };
+  }, [getToken, backendUrl]);
 
   useEffect(() => {
-    if (socket == null || quill == null) return
+    if (socket == null || quill == null) return;
 
     socket.once("load-document", (data) => {
       quill.setContents(data.data || []);
-      if (role === 'viewer') {
-        quill.disable();  // Disable editing for viewer
+      if (userRole === 'viewer') {
+        quill.disable();
         quill.setText(data.data || 'Loading...');
       } else {
         quill.enable();
       }
+      // Set title from data
+      if (data.title) {
+        setTitle(data.title);
+      }
     });
 
     socket.emit("get-document", documentId);
-  }, [socket, quill, documentId, role]);
-
-  useEffect(() => {
-    if (socket == null || quill == null  || role == "viewer") return
-
-    socket.once("load-document", document => {
-      quill.setContents(document.data || document)
-      if (document.title) {
-        setTitle(document.title)
-      }
-      // Load permissions
-      if (document.isOwner !== undefined) {
-        setPermissions({
-          isPublic: document.isPublic || false,
-          collaborators: document.collaborators || [],
-          isOwner: document.isOwner
-        })
-        
-        // Set user role based on permissions
-        if (document.isOwner) {
-          setUserRole("editor")
-        } else {
-          const userCollab = document.collaborators?.find(c => c.isCurrentUser)
-          setUserRole(userCollab?.permission || "viewer")
-        }
-      }
-      quill.enable()
-    })
-
-    socket.emit("get-document", documentId)
-  }, [socket, quill, documentId, role])
+  }, [socket, quill, documentId, userRole]);
 
   // Listen for permission updates from other users
   useEffect(() => {
-    if (!socket) return
+    if (!socket) return;
 
     const handlePermissionsUpdate = (data) => {
-      console.log('Permissions updated:', data)
+      console.log('Permissions updated:', data);
       
       if (data.updates.isPublic !== undefined) {
-        setPermissions(prev => ({ ...prev, isPublic: data.updates.isPublic }))
+        setPermissions(prev => ({ ...prev, isPublic: data.updates.isPublic }));
       }
       
       if (data.updates.collaborators) {
-        setPermissions(prev => ({ ...prev, collaborators: data.updates.collaborators }))
+        setPermissions(prev => ({ ...prev, collaborators: data.updates.collaborators }));
         
         // Check if current user's role changed
-        const userCollab = data.updates.collaborators.find(c => c.isCurrentUser)
+        const userCollab = data.updates.collaborators.find(c => c.isCurrentUser);
         if (userCollab) {
-          setUserRole(userCollab.permission)
+          setUserRole(userCollab.permission);
           
-          // Disable editor if downgraded to viewer
+          // Disable/enable editor based on new role
           if (userCollab.permission === "viewer" && quill) {
-            quill.disable()
-            alert("Your access has been changed to view-only")
+            quill.disable();
+            alert("Your access has been changed to view-only");
           } else if (userCollab.permission === "editor" && quill) {
-            quill.enable()
+            quill.enable();
           }
         }
       }
-    }
+    };
 
-    socket.on("permissions-updated", handlePermissionsUpdate)
+    socket.on("permissions-updated", handlePermissionsUpdate);
 
     return () => {
-      socket.off("permissions-updated", handlePermissionsUpdate)
-    }
-  }, [socket, quill])
+      socket.off("permissions-updated", handlePermissionsUpdate);
+    };
+  }, [socket, quill]);
 
   useEffect(() => {
-    if (socket == null || quill == null || role === 'viewer') return;  // Skip for viewer
+    if (socket == null || quill == null || userRole === 'viewer') return;
 
     const interval = setInterval(() => {
       socket.emit("save-document", quill.getContents());
@@ -227,29 +203,29 @@ export default function TextEditor({ role = 'owner' }) {
     return () => {
       clearInterval(interval);
     };
-  }, [socket, quill, role]);
+  }, [socket, quill, userRole]);
 
   useEffect(() => {
-    if (socket == null || quill == null) return
+    if (socket == null || quill == null) return;
 
     const handler = delta => {
-      quill.updateContents(delta)
-    }
-    socket.on("receive-changes", handler)
+      quill.updateContents(delta);
+    };
+    socket.on("receive-changes", handler);
 
     return () => {
-      socket.off("receive-changes", handler)
-    }
-  }, [socket, quill])
+      socket.off("receive-changes", handler);
+    };
+  }, [socket, quill]);
 
   useEffect(() => {
-    if (!socket || !documentId) return;
+    if (!socket || !documentId || userRole === 'viewer') return;
 
     socket.emit("update-title", { title, documentId });
-  }, [title, socket, documentId]);
+  }, [title, socket, documentId, userRole]);
 
   useEffect(() => {
-    if (socket == null || quill == null || role === 'viewer') return;  // Skip for viewer
+    if (socket == null || quill == null || userRole === 'viewer') return;
 
     const handler = (delta, oldDelta, source) => {
       if (source !== "user") return;
@@ -260,23 +236,23 @@ export default function TextEditor({ role = 'owner' }) {
     return () => {
       quill.off("text-change", handler);
     };
-  }, [socket, quill, role]);
+  }, [socket, quill, userRole]);
 
   const wrapperRef = useCallback(wrapper => {
-    if (wrapper == null) return
+    if (wrapper == null) return;
 
-    wrapper.innerHTML = ""
-    const editor = document.createElement("div")
-    wrapper.append(editor)
+    wrapper.innerHTML = "";
+    const editor = document.createElement("div");
+    wrapper.append(editor);
     const q = new Quill(editor, {
       theme: "snow",
       modules: { toolbar: TOOLBAR_OPTIONS },
-    })
-    q.disable()
-    q.setText("Loading...")
-    setQuill(q)
-  }, [])
-     
+    });
+    q.disable();
+    q.setText("Loading...");
+    setQuill(q);
+  }, []);
+
   return (
     <div className="h-screen flex flex-col">
       {/* Title Bar */}
@@ -289,7 +265,7 @@ export default function TextEditor({ role = 'owner' }) {
           onBlur={handleTitleBlur}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
-              e.target.blur()
+              e.target.blur();
             }
           }}
           className={`text-xl font-medium border-none outline-none px-3 py-2 rounded-md flex-1 max-w-2xl cursor-text transition-colors ${
@@ -321,7 +297,8 @@ export default function TextEditor({ role = 'owner' }) {
         {/* Share Button */}
         <button
           onClick={() => setIsShareModalOpen(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium"
+          disabled={userRole === "viewer"}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
         >
           <Share2 className="w-4 h-4" />
           Share
@@ -342,5 +319,5 @@ export default function TextEditor({ role = 'owner' }) {
         backendUrl={backendUrl}
       />
     </div>
-  )
+  );
 }
