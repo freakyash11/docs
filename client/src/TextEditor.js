@@ -20,7 +20,7 @@ const TOOLBAR_OPTIONS = [
   ["clean"],
 ]
 
-export default function TextEditor({ role = 'editor' }) {
+export default function TextEditor({ role = 'owner' }) {
   const { getToken } = useAuth();
   const { id: documentId } = useParams()
   const [title, setTitle] = useState("Untitled Document")
@@ -138,16 +138,20 @@ export default function TextEditor({ role = 'editor' }) {
     if (socket == null || quill == null) return
 
     socket.once("load-document", (data) => {
-      quill.setContents(data.data);
-      quill.enable();
-      setTitle(data.title || 'Untitled Document');  // Set title from response
+      quill.setContents(data.data || []);
+      if (role === 'viewer') {
+        quill.disable();  // Disable editing for viewer
+        quill.setText(data.data || 'Loading...');
+      } else {
+        quill.enable();
+      }
     });
 
     socket.emit("get-document", documentId);
   }, [socket, quill, documentId, role]);
 
   useEffect(() => {
-    if (socket == null || quill == null) return
+    if (socket == null || quill == null  || role == "viewer") return
 
     socket.once("load-document", document => {
       quill.setContents(document.data || document)
@@ -174,7 +178,7 @@ export default function TextEditor({ role = 'editor' }) {
     })
 
     socket.emit("get-document", documentId)
-  }, [socket, quill, documentId])
+  }, [socket, quill, documentId, role])
 
   // Listen for permission updates from other users
   useEffect(() => {

@@ -318,16 +318,12 @@ export const validateInvitation = async (req, res) => {
 export const acceptInvitation = async (req, res) => {
   try {
     const { token } = req.params;
-    const userId = req.userId;  // Clerk ID
+    const userId = req.userId;
 
     console.log('acceptInvitation called - token:', token, 'userId:', userId);
 
-    if (!token) {
-      return res.status(400).json({ error: 'Token is required' });
-    }
-
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+    if (!token || !userId) {
+      return res.status(400).json({ error: 'Token and user ID required' });
     }
 
     // Find user by Clerk ID
@@ -379,7 +375,7 @@ export const acceptInvitation = async (req, res) => {
       document.collaborators.push({
         userId: user._id,
         email: user.email,
-        permission: invitation.role  // Save role as permission
+        permission: invitation.role  // Save as 'viewer' or 'editor'
       });
       await document.save();
 
@@ -402,7 +398,7 @@ export const acceptInvitation = async (req, res) => {
     res.json({
       success: true,
       message: 'Invitation accepted successfully',
-      role: invitation.role,  // Send role to frontend
+      role: invitation.role,  // Send role to frontend for TextEditor
       redirectTo: `/documents/${document._id}`
     });
   } catch (error) {

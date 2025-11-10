@@ -67,28 +67,21 @@ function setupSocket(server, redis) {
           console.log('Authenticated user:', socket.userId, 'Role:', socket.userRole || 'unknown');
       }
 
-    socket.on("get-document", async (documentId) => {
-  console.log('get-document event received for ID:', documentId, 'From user:', socket.userId);
-  try {
-    if (!documentId) {
-      socket.emit("load-document", { error: 'No document ID provided' });
-      return;
+  socket.on("get-document", async (documentId) => {
+    console.log('get-document event from:', socket.userId, 'Role:', socket.userRole);
+    try {
+      const document = await findOrCreateDocument(documentId);
+      socket.join(documentId);
+      socket.emit("load-document", {
+        data: document.data,
+        title: document.title || 'Untitled Document',
+        role: socket.userRole || 'owner'  // Emit role to frontend
+      });
+    } catch {
+      console.error('Error loading document for user:', socket.userId, 'Role:', socket.userRole);
+      socket.emit("load-document", { error: 'Failed to load document' });
     }
-
-    const document = await findOrCreateDocument(documentId);
-    console.log('Document loaded/created:', document._id, 'Title:', document.title, 'Data length:', document.data.length);
-
-    socket.join(documentId);
-    socket.emit("load-document", {
-      data: document.data,
-      title: document.title || 'Untitled Document'  // Emit title
-    });
-    console.log('Emitted load-document with title:', document.title);
-  } catch (error) {
-    console.error('Error in get-document handler:', error.message);
-    socket.emit("load-document", { error: 'Failed to load document' });
-  }
-});
+  });
 
     socket.on("send-changes", (delta) => {
     if (socket.userRole === 'viewer') {
@@ -103,22 +96,15 @@ function setupSocket(server, redis) {
     }
   });
 
-      socket.on("save-document", async (data) => {
+    socket.on("save-document", async (data) => {
     if (socket.userRole === 'viewer') {
-      console.log('Viewer save attempt blocked:', socket.id);
+      console.log('Blocked save from viewer:', socket.id);
       return;  // Block for viewer
     }
-
-    console.log('save-document event from:', socket.id);
     try {
-      const rooms = Array.from(socket.rooms).filter(room => room !== socket.id);
-      const documentId = rooms[0];
-      if (documentId) {
-        await Document.findByIdAndUpdate(documentId, { data });
-        console.log('Document saved:', documentId);
-      }
+      await Document.findByIdAndUpdate(documentId, { data });
     } catch (error) {
-      console.error('Error saving document:', error.message);
+      console.error('Save error for user:', socket.userId, 'Role:', socket.userRole, error);
     }
   });
 

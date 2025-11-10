@@ -20,7 +20,8 @@ const InvitePage = () => {
       if (!response.ok) {
         throw new Error(data.error || 'Failed to fetch invitation');
       }
-
+      localStorage.setItem('currentRole', data.role);  // Or use React Context
+      navigate(data.redirectTo || '/documents?role=' + data.role);  // Pass as query param
       setInvitation(data.invitation);
       setLoading(false);
     } catch (err) {
