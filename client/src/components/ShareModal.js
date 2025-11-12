@@ -112,7 +112,7 @@ export default function ShareModal({
       
       try {
         const token = await getToken()
-        const response = await fetch(`${backendUrl}/api/invite/${documentId}/invitations?status=pending`, {
+        const response = await fetch(`${backendUrl}/api/invite/documents/${documentId}?status=pending`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
