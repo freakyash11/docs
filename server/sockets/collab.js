@@ -52,7 +52,13 @@ function setupSocket(server, redis) {
           clockSkewInSec: 60
         });
         socket.userId = payload.sub; // Clerk ID
-        console.log('Authenticated user:', socket.userId);
+        
+        // Find the MongoDB user
+        const user = await User.findOne({ clerkId: socket.userId });
+        if (user) {
+          socket.mongoUserId = user._id.toString();
+          console.log('Authenticated user:', socket.userId, 'MongoDB ID:', socket.mongoUserId);
+        }
       } catch (error) {
         console.error('Auth failed for socket:', socket.id, 'Error:', error.message);
         socket.disconnect(true);
@@ -62,58 +68,81 @@ function setupSocket(server, redis) {
       socket.on("disconnect", (reason) => {
         console.log('Disconnected:', socket.id, 'Reason:', reason, 'Transport:', socket.conn.transport.name);
       });
-      
-      if (socket.userId) {
-          console.log('Authenticated user:', socket.userId, 'Role:', socket.userRole || 'unknown');
-      }
 
-  socket.on("get-document", async (documentId) => {
-    console.log('get-document event from:', socket.userId, 'Role:', socket.userRole);
-    try {
-      const document = await findOrCreateDocument(documentId);
-      socket.join(documentId);
-      socket.emit("load-document", {
-        data: document.data,
-        title: document.title || 'Untitled Document',
-        role: socket.userRole || 'owner'  // Emit role to frontend
+      socket.on("get-document", async (documentId) => {
+        console.log('get-document event from:', socket.userId);
+        try {
+          const document = await findOrCreateDocument(documentId);
+          socket.join(documentId);
+          
+          // Determine user's role for this document
+          let userRole = 'viewer'; // Default to viewer
+          
+          if (document.ownerId && socket.mongoUserId && 
+              document.ownerId.toString() === socket.mongoUserId) {
+            userRole = 'owner';
+          } else if (socket.mongoUserId) {
+            // Check if user is a collaborator
+            const collaborator = document.collaborators.find(
+              c => c.userId && c.userId.toString() === socket.mongoUserId
+            );
+            
+            if (collaborator) {
+              userRole = collaborator.permission; // 'editor' or 'viewer'
+            }
+          }
+          
+          // Store role on socket for permission checks
+          socket.userRole = userRole;
+          console.log('User role set:', socket.userRole, 'for document:', documentId);
+          
+          socket.emit("load-document", {
+            data: document.data,
+            title: document.title || 'Untitled Document',
+            role: userRole
+          });
+        } catch (error) {
+          console.error('Error loading document for user:', socket.userId, error);
+          socket.emit("load-document", { error: 'Failed to load document' });
+        }
       });
-    } catch {
-      console.error('Error loading document for user:', socket.userId, 'Role:', socket.userRole);
-      socket.emit("load-document", { error: 'Failed to load document' });
-    }
-  });
 
-    socket.on("send-changes", (delta) => {
-    if (socket.userRole === 'viewer') {
-      console.log('Viewer edit attempt blocked:', socket.id);
-      return;  // Block for viewer
-    }
+      socket.on("send-changes", (delta) => {
+        // Block viewers from sending changes
+        if (socket.userRole === 'viewer') {
+          console.log('Viewer edit attempt blocked:', socket.id);
+          socket.emit('error', { message: 'You do not have permission to edit this document' });
+          return;
+        }
 
-    console.log('send-changes event from:', socket.id);
-    const rooms = Array.from(socket.rooms).filter(room => room !== socket.id);
-    if (rooms.length > 0) {
-      socket.broadcast.to(rooms[0]).emit("receive-changes", delta);
-    }
-  });
+        console.log('send-changes event from:', socket.id, 'Role:', socket.userRole);
+        const rooms = Array.from(socket.rooms).filter(room => room !== socket.id);
+        if (rooms.length > 0) {
+          socket.broadcast.to(rooms[0]).emit("receive-changes", delta);
+        }
+      });
 
-    socket.on("save-document", async (data) => {
-    if (socket.userRole === 'viewer') {
-      console.log('Blocked save from viewer:', socket.id);
-      return;  // Block for viewer
-    }
-    try {
-    const rooms = Array.from(socket.rooms).filter(room => room !== socket.id);
-    const documentId = rooms[0];  // Assume first room is document ID
-    if (!documentId) {
-      console.error('No documentId for save - socket rooms:', socket.rooms);
-      return;
-    }
-    await Document.findByIdAndUpdate(documentId, { data });
-    console.log('Document saved:', documentId);
-    } catch (error) {
-      console.error('Save error for user:', socket.userId, 'Role:', socket.userRole, error);
-    }
-  });
+      socket.on("save-document", async (data) => {
+        // Block viewers from saving
+        if (socket.userRole === 'viewer') {
+          console.log('Blocked save from viewer:', socket.id);
+          socket.emit('error', { message: 'You do not have permission to save this document' });
+          return;
+        }
+        
+        try {
+          const rooms = Array.from(socket.rooms).filter(room => room !== socket.id);
+          const documentId = rooms[0];
+          if (!documentId) {
+            console.error('No documentId for save - socket rooms:', socket.rooms);
+            return;
+          }
+          await Document.findByIdAndUpdate(documentId, { data });
+          console.log('Document saved:', documentId, 'by user role:', socket.userRole);
+        } catch (error) {
+          console.error('Save error for user:', socket.userId, 'Role:', socket.userRole, error);
+        }
+      });
 
       // Handle permission updates
       socket.on("permissions-updated", (data) => {
@@ -140,6 +169,13 @@ function setupSocket(server, redis) {
             clockSkewInSec: 60
           });
           socket.userId = payload.sub;
+          
+          // Update MongoDB user ID
+          const user = await User.findOne({ clerkId: socket.userId });
+          if (user) {
+            socket.mongoUserId = user._id.toString();
+          }
+          
           console.log('Token refreshed for user:', socket.userId);
         } catch (error) {
           console.error('Token refresh failed:', error.message);
@@ -154,21 +190,6 @@ function setupSocket(server, redis) {
     console.error('setupSocket error:', error.message);
     throw error;
   }
-}
-
-// Helper function to check if user has edit permission
-function checkEditPermission(document, mongoUserId) {
-  // Owner always has edit permission
-  if (document.ownerId.toString() === mongoUserId.toString()) {
-    return true;
-  }
-
-  // Check if user is a collaborator with editor permission
-  const collaborator = document.collaborators.find(
-    c => c.userId && c.userId.toString() === mongoUserId.toString()
-  );
-
-  return collaborator && collaborator.permission === 'editor';
 }
 
 async function findOrCreateDocument(id) {

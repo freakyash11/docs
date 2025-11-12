@@ -38,7 +38,7 @@ export default function TextEditor({ role = 'owner' }) {
     collaborators: [],
     isOwner: false
   });
-  const [userRole, setUserRole] = useState(role || "editor");
+  const [userRole, setUserRole] = useState(null); // Start with null, will be set by server
 
   const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
@@ -114,7 +114,10 @@ export default function TextEditor({ role = 'owner' }) {
           console.error('Socket connect error:', err.message);
         });
         s.on('disconnect', (reason) => console.log('Disconnect reason:', reason));
-        s.on('error', (err) => console.error('Socket error:', err));
+        s.on('error', (err) => {
+          console.error('Socket error:', err);
+          alert(err.message || 'An error occurred');
+        });
         
         socketRef.current = s;
         setSocket(s);
@@ -140,21 +143,31 @@ export default function TextEditor({ role = 'owner' }) {
     if (socket == null || quill == null) return;
 
     socket.once("load-document", (data) => {
+      console.log('Document loaded with role:', data.role);
+      
+      // Set role from server response
+      setUserRole(data.role);
+      
+      // Load document content
       quill.setContents(data.data || []);
-      if (userRole === 'viewer') {
-        quill.disable();
-        quill.setText(data.data || 'Loading...');
-      } else {
-        quill.enable();
-      }
+      
       // Set title from data
       if (data.title) {
         setTitle(data.title);
       }
+      
+      // Enable/disable editor based on role
+      if (data.role === 'viewer') {
+        quill.disable();
+        console.log('Editor disabled for viewer');
+      } else {
+        quill.enable();
+        console.log('Editor enabled for role:', data.role);
+      }
     });
 
     socket.emit("get-document", documentId);
-  }, [socket, quill, documentId, userRole]);
+  }, [socket, quill, documentId]);
 
   // Listen for permission updates from other users
   useEffect(() => {
@@ -173,14 +186,16 @@ export default function TextEditor({ role = 'owner' }) {
         // Check if current user's role changed
         const userCollab = data.updates.collaborators.find(c => c.isCurrentUser);
         if (userCollab) {
-          setUserRole(userCollab.permission);
+          const newRole = userCollab.permission;
+          setUserRole(newRole);
           
           // Disable/enable editor based on new role
-          if (userCollab.permission === "viewer" && quill) {
+          if (newRole === "viewer" && quill) {
             quill.disable();
             alert("Your access has been changed to view-only");
-          } else if (userCollab.permission === "editor" && quill) {
+          } else if (newRole === "editor" && quill) {
             quill.enable();
+            alert("Your access has been changed to editor");
           }
         }
       }
@@ -193,8 +208,9 @@ export default function TextEditor({ role = 'owner' }) {
     };
   }, [socket, quill]);
 
+  // Auto-save interval - only for editors/owners
   useEffect(() => {
-    if (socket == null || quill == null || userRole === 'viewer') return;
+    if (socket == null || quill == null || userRole === 'viewer' || !userRole) return;
 
     const interval = setInterval(() => {
       socket.emit("save-document", quill.getContents());
@@ -205,6 +221,7 @@ export default function TextEditor({ role = 'owner' }) {
     };
   }, [socket, quill, userRole]);
 
+  // Receive changes from other users
   useEffect(() => {
     if (socket == null || quill == null) return;
 
@@ -218,14 +235,9 @@ export default function TextEditor({ role = 'owner' }) {
     };
   }, [socket, quill]);
 
+  // Send changes to other users - only for editors/owners
   useEffect(() => {
-    if (!socket || !documentId || userRole === 'viewer') return;
-
-    socket.emit("update-title", { title, documentId });
-  }, [title, socket, documentId, userRole]);
-
-  useEffect(() => {
-    if (socket == null || quill == null || userRole === 'viewer') return;
+    if (socket == null || quill == null || userRole === 'viewer' || !userRole) return;
 
     const handler = (delta, oldDelta, source) => {
       if (source !== "user") return;
@@ -279,6 +291,16 @@ export default function TextEditor({ role = 'owner' }) {
         {userRole === "viewer" && (
           <span className="px-3 py-1 bg-gray-100 text-gray-600 text-sm font-medium rounded-full">
             View Only
+          </span>
+        )}
+        {userRole === "editor" && (
+          <span className="px-3 py-1 bg-blue-100 text-blue-600 text-sm font-medium rounded-full">
+            Editor
+          </span>
+        )}
+        {userRole === "owner" && (
+          <span className="px-3 py-1 bg-green-100 text-green-600 text-sm font-medium rounded-full">
+            Owner
           </span>
         )}
         
