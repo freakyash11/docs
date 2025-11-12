@@ -102,7 +102,14 @@ function setupSocket(server, redis) {
       return;  // Block for viewer
     }
     try {
-      await Document.findByIdAndUpdate(documentId, { data });
+    const rooms = Array.from(socket.rooms).filter(room => room !== socket.id);
+    const documentId = rooms[0];  // Assume first room is document ID
+    if (!documentId) {
+      console.error('No documentId for save - socket rooms:', socket.rooms);
+      return;
+    }
+    await Document.findByIdAndUpdate(documentId, { data });
+    console.log('Document saved:', documentId);
     } catch (error) {
       console.error('Save error for user:', socket.userId, 'Role:', socket.userRole, error);
     }
