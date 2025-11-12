@@ -7,14 +7,18 @@ import {
   revokeInvitation, 
   getDocumentInvitations, 
   resendInvitation, 
-  cleanupExpiredInvitations 
-} from '../controllers/invitationController.js';  // Adjust path to your controller file
+  cleanupExpiredInvitations,
+  updateDocumentPermissions  // Add this new controller
+} from '../controllers/invitationController.js';
 import authMiddleware from '../middleware/authmiddleware.js';
 
 const router = express.Router();
 
-// POST /api/invite - Create invitation (from document page)
-router.post('/:id/invite', authMiddleware,  createInvitation);
+// POST /api/invite/:id/invite - Create invitation (from document page)
+router.post('/:id/invite', authMiddleware, createInvitation);
+
+// PATCH /api/invite/document/:documentId - Update document permissions (public/private, collaborators)
+router.patch('/document/:documentId', authMiddleware, updateDocumentPermissions);
 
 // GET /api/invite/:token - Fetch invitation details by token
 router.get('/:token', getInvitationByToken);
@@ -25,8 +29,8 @@ router.post('/:token/validate', authMiddleware, validateInvitation);
 // POST /api/invite/:token/accept - Accept invitation
 router.post('/:token/accept', authMiddleware, acceptInvitation);
 
-// DELETE /api/invite/:invitationId - Revoke invitation (owner only)
-router.delete('/:invitationId', authMiddleware, revokeInvitation);
+// PATCH /api/invite/revoke/:invitationId - Revoke invitation (change status to 'revoked')
+router.patch('/revoke/:invitationId', authMiddleware, revokeInvitation);
 
 // GET /api/invite/documents/:documentId - Get all invitations for a document
 router.get('/documents/:documentId', authMiddleware, getDocumentInvitations);

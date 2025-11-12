@@ -407,6 +407,66 @@ export const acceptInvitation = async (req, res) => {
   }
 };
 
+// Add this to your invitationController.js
+
+export const updateDocumentPermissions = async (req, res) => {
+  try {
+    const { documentId } = req.params;
+    const userId = req.userId; // From auth middleware
+    const updates = req.body; // { isPublic, collaborators }
+
+    console.log('updateDocumentPermissions called:', { documentId, userId, updates });
+
+    // Find user by Clerk ID
+    const user = await User.findOne({ clerkId: userId });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Find document
+    const document = await Document.findById(documentId);
+    if (!document) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    // Check if user is owner
+    if (document.ownerId.toString() !== user._id.toString()) {
+      return res.status(403).json({ error: 'Only the owner can update document permissions' });
+    }
+
+    // Update isPublic if provided
+    if (updates.isPublic !== undefined) {
+      document.isPublic = updates.isPublic;
+      console.log('Updated isPublic to:', updates.isPublic);
+    }
+
+    // Update collaborators if provided
+    if (updates.collaborators) {
+      document.collaborators = updates.collaborators.map(collab => ({
+        userId: collab.userId,
+        email: collab.email,
+        permission: collab.permission || 'viewer'
+      }));
+      console.log('Updated collaborators:', document.collaborators.length);
+    }
+
+    await document.save();
+
+    res.json({
+      success: true,
+      message: 'Document permissions updated',
+      document: {
+        id: document._id,
+        isPublic: document.isPublic,
+        collaborators: document.collaborators
+      }
+    });
+
+  } catch (error) {
+    console.error('Update document permissions error:', error);
+    res.status(500).json({ error: 'Failed to update document permissions' });
+  }
+};
 // Revoke invitation (owner can cancel pending invites)
 export const revokeInvitation = async (req, res) => {
   try {
