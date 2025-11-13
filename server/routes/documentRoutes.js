@@ -10,23 +10,20 @@ import {
 
 const router = express.Router();
 
-// All routes require authentication
-router.use(authMiddleware);
-
 // POST /api/documents - Create new document
-router.post('/', createDocument);
+router.post('/', authMiddleware, createDocument);
 
 // GET /api/documents - Get user's documents
-router.get('/', getUserDocuments);
+router.get('/', authMiddleware, getUserDocuments);
 
 // GET /api/documents/:id - Get single document
 router.get('/:id', getDocument);
 
 // PATCH /api/documents/:id - Update document metadata
-router.patch('/:id', updateDocument);
+router.patch('/:id', authMiddleware, updateDocument);
 
 // DELETE /api/documents/:id - Delete document
-router.delete('/:id', deleteDocument);
+router.delete('/:id', authMiddleware, deleteDocument);
 
 
 export default router;
