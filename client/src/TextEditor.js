@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState, useRef } from "react"
 import Quill from "quill"
 import "quill/dist/quill.snow.css"
 import { io } from "socket.io-client"
-import { useParams, useNavigate } from "react-router-dom"  // Added useNavigate here
+import { useParams, useNavigate } from "react-router-dom"
 import { useAuth } from '@clerk/clerk-react'
-import { Share2 } from "lucide-react"
+import { Share2, Globe } from "lucide-react"
 import ShareModal from "./components/ShareModal"
 
 const SAVE_INTERVAL_MS = 2000
@@ -43,6 +43,11 @@ export default function TextEditor({ role = 'owner' }) {
   const [isPublicDoc, setIsPublicDoc] = useState(false);
 
   const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
+
+  // Handle sign in redirect
+  const handleSignInRedirect = () => {
+    navigate('/sign-in');
+  };
 
   // Function to update document title via PATCH API
   const updateDocumentTitle = useCallback(async (newTitle) => {
@@ -156,6 +161,7 @@ export default function TextEditor({ role = 'owner' }) {
       
       // Set role from server response
       setUserRole(data.role);
+      setIsPublicDoc(data.isPublic || false);
       
       // Load document content
       quill.setContents(data.data || []);
@@ -276,6 +282,22 @@ export default function TextEditor({ role = 'owner' }) {
 
   return (
     <div className="h-screen flex flex-col">
+      {/* Guest Banner - Show if user is not signed in and viewing public doc */}
+      {!isSignedIn && isPublicDoc && userRole === 'viewer' && (
+        <div className="bg-blue-50 border-b border-blue-200 px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-blue-800">
+            <Globe className="w-4 h-4" />
+            <span>You're viewing this document as a guest.</span>
+          </div>
+          <button
+            onClick={handleSignInRedirect}
+            className="px-4 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Sign in to collaborate
+          </button>
+        </div>
+      )}
+
       {/* Title Bar */}
       <div className="px-6 py-4 border-b border-gray-200 bg-white flex items-center gap-3 shadow-sm">
         <input
