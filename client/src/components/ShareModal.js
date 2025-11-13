@@ -118,9 +118,17 @@ export default function ShareModal({
         
         const data = await response.json();
         console.log('📄 Document data loaded:', data);
+        console.log('👥 Collaborators:', data.document?.collaborators);
         
         setIsPublic(data.document?.isPublic || false);
         setCollaborators(data.document?.collaborators || []);
+        
+        // Log for debugging
+        if (data.document?.collaborators?.length > 0) {
+          console.log('✅ Found', data.document.collaborators.length, 'collaborators');
+        } else {
+          console.log('⚠️ No collaborators found in document');
+        }
       } catch (err) {
         console.error('Fetch document permissions error:', err);
       }

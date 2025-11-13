@@ -112,7 +112,8 @@ export const getDocument = async (req, res) => {
 
     const document = await Document.findById(id)
       .populate('ownerId', 'name email')
-      .populate('collaborators.userId', 'name email');
+      .populate('collaborators.userId', 'name email')
+      .populate('email clerkId');
     
     if (!document) {
       return res.status(404).json({ error: 'Document not found' });
@@ -137,6 +138,7 @@ export const getDocument = async (req, res) => {
       owner: document.ownerId.name,
       isOwner,
       collaborators: document.collaborators.map(collab => ({
+        userId: collab.userId?._id,
         name: collab.userId.name,
         email: collab.userId.email,
         permission: collab.permission
