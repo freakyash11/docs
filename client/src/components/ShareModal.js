@@ -68,10 +68,19 @@ export default function ShareModal({
         throw new Error(data.error || 'Failed to revoke invitation')
       }
 
+      // Remove from pending invites list immediately
       setPendingInvites(prev => prev.filter(invite => invite.id !== inviteId))
       
       setSaveStatus('Invitation revoked')
       setTimeout(() => setSaveStatus(''), 3000)
+
+      // Notify via socket
+      if (socket) {
+        socket.emit("invitation-revoked", {
+          documentId,
+          invitationId: inviteId
+        })
+      }
 
     } catch (err) {
       console.error('Revoke invitation error:', err)
@@ -127,16 +136,25 @@ export default function ShareModal({
       
       try {
         const token = await getToken()
-        const response = await fetch(`${backendUrl}/api/invite/documents/${documentId}?status=pending`, {
+        const response = await fetch(`${backendUrl}/api/invite/documents/${documentId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         })
 
-        if (!response.ok) throw new Error('Failed to fetch pending invitations')
+        if (!response.ok) throw new Error('Failed to fetch invitations')
         
         const data = await response.json()
-        setPendingInvites(data.invitations || [])
+        
+        // Filter only pending invitations (not accepted, not revoked)
+        const pending = (data.invitations || []).filter(
+          invite => invite.status === 'pending'
+        )
+        
+        console.log('📬 All invitations:', data.invitations?.length);
+        console.log('⏳ Pending invitations:', pending.length);
+        
+        setPendingInvites(pending)
       } catch (err) {
         console.error('Fetch pending invites error:', err)
       }
@@ -144,6 +162,49 @@ export default function ShareModal({
 
     fetchPendingInvites()
   }, [isOpen, documentId, getToken, backendUrl])
+
+  // Listen for invitation acceptance via socket to refresh lists
+  useEffect(() => {
+    if (!socket || !isOpen) return;
+
+    const handleCollaboratorAdded = async () => {
+      console.log('🔔 Collaborator added - refreshing lists');
+      
+      // Refetch document permissions to get updated collaborators
+      try {
+        const token = await getToken();
+        const response = await fetch(`${backendUrl}/api/documents/${documentId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setCollaborators(data.document?.collaborators || []);
+        }
+        
+        // Refetch pending invites
+        const inviteResponse = await fetch(`${backendUrl}/api/invite/documents/${documentId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (inviteResponse.ok) {
+          const inviteData = await inviteResponse.json();
+          const pending = (inviteData.invitations || []).filter(
+            invite => invite.status === 'pending'
+          );
+          setPendingInvites(pending);
+        }
+      } catch (err) {
+        console.error('Failed to refresh lists:', err);
+      }
+    };
+
+    socket.on('collaborator-added', handleCollaboratorAdded);
+
+    return () => {
+      socket.off('collaborator-added', handleCollaboratorAdded);
+    };
+  }, [socket, isOpen, documentId, getToken, backendUrl])
 
   // Update permissions on backend
   const updatePermissions = async (updates) => {
@@ -523,6 +584,9 @@ export default function ShareModal({
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-800 truncate">
                           {collaborator.email || 'Unknown User'}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {collaborator.permission === 'editor' ? 'Can edit' : 'Can view only'}
                         </p>
                       </div>
                     </div>
