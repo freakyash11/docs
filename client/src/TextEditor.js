@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, useRef } from "react"
 import Quill from "quill"
 import "quill/dist/quill.snow.css"
 import { io } from "socket.io-client"
-import { useParams } from "react-router-dom"
+import { useParams, useNavigate } from "react-router-dom"  // Added useNavigate here
 import { useAuth } from '@clerk/clerk-react'
 import { Share2 } from "lucide-react"
 import ShareModal from "./components/ShareModal"
