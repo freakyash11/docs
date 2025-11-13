@@ -101,40 +101,62 @@ export default function ShareModal({
     }
   }
 
-  // Fetch document permissions when modal opens
+  // Fetch document permissions and collaborators when modal opens
   useEffect(() => {
-    const fetchDocumentPermissions = async () => {
+    const fetchDocumentData = async () => {
       if (!isOpen || !documentId) return;
       
       try {
         const token = await getToken();
-        const response = await fetch(`${backendUrl}/api/documents/${documentId}`, {
+        
+        // Fetch all invitations to get both pending and accepted
+        const inviteResponse = await fetch(`${backendUrl}/api/invite/documents/${documentId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
 
-        if (!response.ok) throw new Error('Failed to fetch document');
+        if (!inviteResponse.ok) throw new Error('Failed to fetch invitations');
         
-        const data = await response.json();
-        console.log('📄 Document data loaded:', data);
-        console.log('👥 Collaborators:', data.document?.collaborators);
+        const inviteData = await inviteResponse.json();
+        console.log('📬 All invitations:', inviteData);
         
-        setIsPublic(data.document?.isPublic || false);
-        setCollaborators(data.document?.collaborators || []);
+        // Filter pending invitations
+        const pending = (inviteData.invitations || []).filter(
+          invite => invite.status === 'pending'
+        );
         
-        // Log for debugging
-        if (data.document?.collaborators?.length > 0) {
-          console.log('✅ Found', data.document.collaborators.length, 'collaborators');
-        } else {
-          console.log('⚠️ No collaborators found in document');
+        // Get accepted invitations to build collaborators list
+        const accepted = (inviteData.invitations || []).filter(
+          invite => invite.status === 'accepted'
+        );
+        
+        console.log('⏳ Pending invitations:', pending.length);
+        console.log('✅ Accepted invitations:', accepted.length);
+        
+        setPendingInvites(pending);
+        
+        // Build collaborators list from accepted invitations
+        const collabList = accepted.map(invite => ({
+          email: invite.email,
+          permission: invite.role, // role is 'viewer' or 'editor'
+          userId: invite.acceptedBy || null
+        }));
+        
+        setCollaborators(collabList);
+        
+        // Fetch document public/private status from invitations endpoint
+        // (You might need to add this to your invite response)
+        if (inviteData.document) {
+          setIsPublic(inviteData.document.isPublic || false);
         }
+        
       } catch (err) {
-        console.error('Fetch document permissions error:', err);
+        console.error('Fetch document data error:', err);
       }
     };
 
-    fetchDocumentPermissions();
+    fetchDocumentData();
   }, [isOpen, documentId, getToken, backendUrl]);
 
   // Fetch pending invitations when modal opens
@@ -142,30 +164,8 @@ export default function ShareModal({
     const fetchPendingInvites = async () => {
       if (!isOpen) return;
       
-      try {
-        const token = await getToken()
-        const response = await fetch(`${backendUrl}/api/invite/documents/${documentId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-
-        if (!response.ok) throw new Error('Failed to fetch invitations')
-        
-        const data = await response.json()
-        
-        // Filter only pending invitations (not accepted, not revoked)
-        const pending = (data.invitations || []).filter(
-          invite => invite.status === 'pending'
-        )
-        
-        console.log('📬 All invitations:', data.invitations?.length);
-        console.log('⏳ Pending invitations:', pending.length);
-        
-        setPendingInvites(pending)
-      } catch (err) {
-        console.error('Fetch pending invites error:', err)
-      }
+      // This is now handled in the main fetchDocumentData effect above
+      // Keeping this empty to avoid duplicate fetches
     }
 
     fetchPendingInvites()
@@ -178,29 +178,33 @@ export default function ShareModal({
     const handleCollaboratorAdded = async () => {
       console.log('🔔 Collaborator added - refreshing lists');
       
-      // Refetch document permissions to get updated collaborators
+      // Refetch all invitations to update both pending and accepted lists
       try {
         const token = await getToken();
-        const response = await fetch(`${backendUrl}/api/documents/${documentId}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setCollaborators(data.document?.collaborators || []);
-        }
-        
-        // Refetch pending invites
         const inviteResponse = await fetch(`${backendUrl}/api/invite/documents/${documentId}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
         if (inviteResponse.ok) {
           const inviteData = await inviteResponse.json();
+          
           const pending = (inviteData.invitations || []).filter(
             invite => invite.status === 'pending'
           );
+          
+          const accepted = (inviteData.invitations || []).filter(
+            invite => invite.status === 'accepted'
+          );
+          
           setPendingInvites(pending);
+          
+          const collabList = accepted.map(invite => ({
+            email: invite.email,
+            permission: invite.role,
+            userId: invite.acceptedBy || null
+          }));
+          
+          setCollaborators(collabList);
         }
       } catch (err) {
         console.error('Failed to refresh lists:', err);

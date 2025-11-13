@@ -549,22 +549,23 @@ export const getDocumentInvitations = async (req, res) => {
     const invitations = await Invitation.find({ docId: documentId })
       .sort({ createdAt: -1 });
     
+      const formattedInvitations = invitations.map(inv => ({
+      id: inv._id,
+      email: inv.email,
+      role: inv.role,
+      status: inv.status,
+      expiresAt: inv.expiresAt,
+      createdAt: inv.createdAt,
+      acceptedAt: inv.acceptedAt,
+      acceptedBy: inv.acceptedBy // Add this if you track who accepted
+    }));
+
     res.json({
       success: true,
-      invitations: invitations.map(inv => ({
-        id: inv._id,
-        email: inv.email,
-        role: inv.role,
-        status: inv.status,
-        expiresAt: inv.expiresAt,
-        createdAt: inv.createdAt,
-        acceptedAt: inv.acceptedAt,
-        revokedAt: inv.revokedAt,
-        invitedBy: inv.invitedBy?.name,
-        attempts: inv.attempts,
-        isExpired: inv.isExpired,
-        isValid: inv.isValid
-      }))
+      invitations: formattedInvitations,
+      document: {  // ADD THIS
+        isPublic: document.isPublic
+      }
     });
   } catch (error) {
     console.error('Get document invitations error:', error.message);
