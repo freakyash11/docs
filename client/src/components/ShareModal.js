@@ -10,8 +10,8 @@ export default function ShareModal({
   getToken,
   backendUrl 
 }) {
-  const [isPublic, setIsPublic] = useState(currentPermissions?.isPublic || false)
-  const [collaborators, setCollaborators] = useState(currentPermissions?.collaborators || [])
+  const [isPublic, setIsPublic] = useState(false)
+  const [collaborators, setCollaborators] = useState([])
   const [pendingInvites, setPendingInvites] = useState([])
   const [newEmail, setNewEmail] = useState("")
   const [newRole, setNewRole] = useState("viewer")
@@ -37,11 +37,9 @@ export default function ShareModal({
 
       const data = await response.json()
       
-      // Show success message
       setSaveStatus('Invitation resent successfully')
       setTimeout(() => setSaveStatus(''), 3000)
 
-      // Update pending invites list
       setPendingInvites(prev => prev.map(invite => 
         invite.id === inviteId 
           ? { ...data.invitation, id: data.invitation.id } 
@@ -58,7 +56,7 @@ export default function ShareModal({
   const handleRevokeInvite = async (inviteId) => {
     try {
       const token = await getToken()
-      const response = await fetch(`${backendUrl}/api/invite/${inviteId}`, {
+      const response = await fetch(`${backendUrl}/api/invite/revoke/${inviteId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -70,10 +68,8 @@ export default function ShareModal({
         throw new Error(data.error || 'Failed to revoke invitation')
       }
 
-      // Remove from pending invites list
       setPendingInvites(prev => prev.filter(invite => invite.id !== inviteId))
       
-      // Show success message
       setSaveStatus('Invitation revoked')
       setTimeout(() => setSaveStatus(''), 3000)
 
@@ -96,14 +92,33 @@ export default function ShareModal({
     }
   }
 
-  // Update local state when props change
+  // Fetch document permissions when modal opens
   useEffect(() => {
-    if (currentPermissions) {
-      console.log('🔐 ShareModal received permissions:', currentPermissions) // Debug log
-      setIsPublic(currentPermissions.isPublic || false)
-      setCollaborators(currentPermissions.collaborators || [])
-    }
-  }, [currentPermissions])
+    const fetchDocumentPermissions = async () => {
+      if (!isOpen || !documentId) return;
+      
+      try {
+        const token = await getToken();
+        const response = await fetch(`${backendUrl}/api/documents/${documentId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch document');
+        
+        const data = await response.json();
+        console.log('📄 Document data loaded:', data);
+        
+        setIsPublic(data.document?.isPublic || false);
+        setCollaborators(data.document?.collaborators || []);
+      } catch (err) {
+        console.error('Fetch document permissions error:', err);
+      }
+    };
+
+    fetchDocumentPermissions();
+  }, [isOpen, documentId, getToken, backendUrl]);
 
   // Fetch pending invitations when modal opens
   useEffect(() => {
@@ -137,7 +152,10 @@ export default function ShareModal({
       setError("")
       const token = await getToken()
 
-      const response = await fetch(`${backendUrl}/api/invite/${documentId}`, {
+      console.log('🔄 Updating permissions:', updates);
+      console.log('📍 URL:', `${backendUrl}/api/invite/document/${documentId}`);
+
+      const response = await fetch(`${backendUrl}/api/invite/document/${documentId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -146,12 +164,24 @@ export default function ShareModal({
         body: JSON.stringify(updates)
       })
 
+      console.log('📡 Response status:', response.status);
+
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to update permissions')
+        const text = await response.text();
+        console.error('❌ Response:', text);
+        
+        let errorMessage = 'Failed to update permissions';
+        try {
+          const data = JSON.parse(text);
+          errorMessage = data.error || errorMessage;
+        } catch (e) {
+          errorMessage = `Server error: ${response.status}`;
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json()
+      console.log('✅ Permissions updated:', data);
       
       // Notify other collaborators via socket
       if (socket) {
@@ -166,7 +196,7 @@ export default function ShareModal({
       
       return data
     } catch (err) {
-      console.error('Update permissions error:', err)
+      console.error('❌ Update permissions error:', err)
       setError(err.message)
       setSaveStatus("")
       throw err
@@ -192,14 +222,12 @@ export default function ShareModal({
       return
     }
 
-    // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(newEmail)) {
       setError("Please enter a valid email address")
       return
     }
 
-    // Check if already exists
     if (collaborators.some(c => c.email === newEmail)) {
       setError("This user is already a collaborator")
       return
@@ -229,22 +257,19 @@ export default function ShareModal({
 
       const data = await response.json()
       
-      // Show success message
       setSaveStatus("sent")
       setNewEmail("")
       
-      // Add to pending invites list if you have one
-      // For now, just show temporary success message
+      setPendingInvites(prev => [...prev, data.invitation])
+      
       const successMessage = `Invitation sent to ${newEmail} (expires in 7 days)`
-      setError("") // Clear any existing errors
+      setError("")
       setSaveStatus(successMessage)
       
-      // Clear success message after 3 seconds
       setTimeout(() => {
         setSaveStatus("")
       }, 3000)
 
-      // Notify other collaborators via socket
       if (socket) {
         socket.emit("invitation-sent", {
           documentId,
@@ -324,7 +349,7 @@ export default function ShareModal({
                   <span className="text-blue-600">Sending invitation...</span>
                 </>
               )}
-              {saveStatus.includes("sent to") && (
+              {(saveStatus.includes("sent to") || saveStatus.includes("revoked") || saveStatus.includes("resent")) && (
                 <>
                   <Check className="w-4 h-4 text-green-600" />
                   <span className="text-green-600">{saveStatus}</span>

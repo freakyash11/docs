@@ -89,17 +89,32 @@ function setupSocket(server, redis) {
             
             if (collaborator) {
               userRole = collaborator.permission; // 'editor' or 'viewer'
+            } else if (document.isPublic) {
+              // Public documents are view-only for non-collaborators
+              userRole = 'viewer';
+            } else {
+              // Private document, no access
+              socket.emit("load-document", { error: 'You do not have access to this document' });
+              return;
             }
+          } else if (document.isPublic) {
+            // Not authenticated but document is public - view only
+            userRole = 'viewer';
+          } else {
+            // Not authenticated and document is private
+            socket.emit("load-document", { error: 'Authentication required' });
+            return;
           }
           
           // Store role on socket for permission checks
           socket.userRole = userRole;
-          console.log('User role set:', socket.userRole, 'for document:', documentId);
+          console.log('User role set:', socket.userRole, 'for document:', documentId, 'isPublic:', document.isPublic);
           
           socket.emit("load-document", {
             data: document.data,
             title: document.title || 'Untitled Document',
-            role: userRole
+            role: userRole,
+            isPublic: document.isPublic
           });
         } catch (error) {
           console.error('Error loading document for user:', socket.userId, error);
