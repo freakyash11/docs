@@ -46,7 +46,7 @@ export default function TextEditor({ role = 'owner' }) {
 
   // Handle sign in redirect
   const handleSignInRedirect = () => {
-    navigate('/sign-in');
+    navigate('/auth');
   };
 
   // Function to update document title via PATCH API
