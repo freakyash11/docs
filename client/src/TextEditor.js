@@ -21,8 +21,9 @@ const TOOLBAR_OPTIONS = [
 ]
 
 export default function TextEditor({ role = 'owner' }) {
-  const { getToken } = useAuth();
+  const { getToken, isSignedIn } = useAuth();
   const { id: documentId } = useParams();
+  const navigate = useNavigate();
   const [title, setTitle] = useState("Untitled Document");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
@@ -39,6 +40,7 @@ export default function TextEditor({ role = 'owner' }) {
     isOwner: false
   });
   const [userRole, setUserRole] = useState(null); // Start with null, will be set by server
+  const [isPublicDoc, setIsPublicDoc] = useState(false);
 
   const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
@@ -96,9 +98,16 @@ export default function TextEditor({ role = 'owner' }) {
   useEffect(() => {
     const connectSocket = async () => {
       try {
-        const token = await getToken();
+        // Try to get token, but don't fail if not authenticated
+        let token = null;
+        try {
+          token = await getToken();
+        } catch (err) {
+          console.log('No auth token - connecting as guest');
+        }
+
         const s = io(backendUrl, {
-          auth: { token },
+          auth: { token: token || '' }, // Send empty string if no token
           transports: ['websocket'],
           secure: true,
           withCredentials: true,
@@ -122,7 +131,7 @@ export default function TextEditor({ role = 'owner' }) {
         socketRef.current = s;
         setSocket(s);
       } catch (error) {
-        console.error('Failed to get token or connect socket:', error);
+        console.error('Failed to connect socket:', error);
       }
     };
     

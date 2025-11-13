@@ -44,25 +44,30 @@ function setupSocket(server, redis) {
       const token = socket.handshake.auth.token;
       console.log('Handshake auth token received:', token ? 'Present' : 'Missing');
 
-      try {
-        const payload = await verifyToken(token, {
-          jwtKey: process.env.CLERK_JWT_VERIFICATION_KEY,
-          authorizedParties: ['https://docsy-client.vercel.app', 'http://localhost:3000'],
-          issuer: 'https://ethical-javelin-15.clerk.accounts.dev',
-          clockSkewInSec: 60
-        });
-        socket.userId = payload.sub; // Clerk ID
-        
-        // Find the MongoDB user
-        const user = await User.findOne({ clerkId: socket.userId });
-        if (user) {
-          socket.mongoUserId = user._id.toString();
-          console.log('Authenticated user:', socket.userId, 'MongoDB ID:', socket.mongoUserId);
+      // Try to authenticate, but don't disconnect if no token (for public docs)
+      if (token) {
+        try {
+          const payload = await verifyToken(token, {
+            jwtKey: process.env.CLERK_JWT_VERIFICATION_KEY,
+            authorizedParties: ['https://docsy-client.vercel.app', 'http://localhost:3000'],
+            issuer: 'https://ethical-javelin-15.clerk.accounts.dev',
+            clockSkewInSec: 60
+          });
+          socket.userId = payload.sub; // Clerk ID
+          
+          // Find the MongoDB user
+          const user = await User.findOne({ clerkId: socket.userId });
+          if (user) {
+            socket.mongoUserId = user._id.toString();
+            console.log('Authenticated user:', socket.userId, 'MongoDB ID:', socket.mongoUserId);
+          }
+        } catch (error) {
+          console.error('Auth failed for socket:', socket.id, 'Error:', error.message);
+          // Don't disconnect - they might be viewing a public document
+          console.log('Continuing as guest user');
         }
-      } catch (error) {
-        console.error('Auth failed for socket:', socket.id, 'Error:', error.message);
-        socket.disconnect(true);
-        return;
+      } else {
+        console.log('No token provided - continuing as guest user');
       }
 
       socket.on("disconnect", (reason) => {

@@ -34,11 +34,11 @@ function App() {
         } />
         <Route path="/invite/:token" element={<InvitePage />} />
         <Route path="/documents/:id" element={
-            <ProtectedRoute>
+            //<ProtectedRoute>
               <Layout>
               <TextEditor />
               </Layout>
-            </ProtectedRoute>
+            //</ProtectedRoute>
           }  />
       </Routes>
     </Router>
