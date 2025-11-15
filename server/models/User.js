@@ -20,7 +20,7 @@ const userSchema = new mongoose.Schema({
   },
   googleId: {
     type: String,
-    sparse: true, // Allows null values but ensures uniqueness when present
+    sparse: true, 
     unique: true
   },
   clerkId: {

@@ -5,7 +5,6 @@ import { authenticateUser, optionalAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Get current authenticated user
 router.get('/me', authenticateUser, async (req, res) => {
   try {
     const user = await User.findOne({ clerkId: req.user.clerkId });
@@ -30,7 +29,6 @@ router.get('/me', authenticateUser, async (req, res) => {
   }
 });
 
-// Update user profile (additional data not handled by Clerk)
 router.put('/profile', authenticateUser, async (req, res) => {
   try {
     const { name } = req.body;
@@ -59,10 +57,8 @@ router.put('/profile', authenticateUser, async (req, res) => {
   }
 });
 
-// Get user's documents
 router.get('/documents', authenticateUser, async (req, res) => {
   try {
-    // You'll need to add userId field to Document model
     const documents = await Document.find({ userId: req.user.clerkId });
     
     res.json({
@@ -79,13 +75,9 @@ router.get('/documents', authenticateUser, async (req, res) => {
   }
 });
 
-// Delete user account (removes from both Clerk and MongoDB)
 router.delete('/account', authenticateUser, async (req, res) => {
   try {
-    // Delete from Clerk
     await clerkClient.users.deleteUser(req.user.clerkId);
-    
-    // Delete from MongoDB
     await User.findOneAndDelete({ clerkId: req.user.clerkId });
     
     res.json({ message: 'Account deleted successfully' });
@@ -95,12 +87,9 @@ router.delete('/account', authenticateUser, async (req, res) => {
   }
 });
 
-// Verify user exists in database (useful after webhook sync)
 router.post('/verify', authenticateUser, async (req, res) => {
   try {
     let user = await User.findOne({ clerkId: req.user.clerkId });
-    
-    // If user doesn't exist in DB, create them (fallback)
     if (!user) {
       const clerkUser = await clerkClient.users.getUser(req.user.clerkId);
       
@@ -131,7 +120,6 @@ router.post('/verify', authenticateUser, async (req, res) => {
   }
 });
 
-// Health check for auth system
 router.get('/health', optionalAuth, (req, res) => {
   res.json({
     authSystem: 'operational',
@@ -140,7 +128,6 @@ router.get('/health', optionalAuth, (req, res) => {
   });
 });
 
-// routes/auth.js - Replace the /verify route
 router.post('/sync', authenticateUser, async (req, res) => {
   try {
     const user = await UserSyncService.syncUserFromClerk(req.user.clerkId);
@@ -150,7 +137,7 @@ router.post('/sync', authenticateUser, async (req, res) => {
   }
 });
 
-// routes/auth.js - Add admin cleanup
+// admin cleanup
 router.post('/cleanup-orphaned', async (req, res) => {
   try {
     const count = await UserSyncService.cleanupOrphanedUsers();

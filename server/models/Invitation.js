@@ -113,14 +113,8 @@ invitationSchema.statics.hashToken = function(token) {
 // Static method: Create invitation with token
 invitationSchema.statics.createInvitation = async function(data) {
   const { docId, email, role, invitedBy, notes, ip, userAgent } = data;
-  
-  // Generate plain token (to send via email - don't store!)
   const plainToken = this.generateToken();
-  
-  // Hash token for storage
   const tokenHash = this.hashToken(plainToken);
-  
-  // Check for existing pending invitation
   const existingInvite = await this.findOne({
     docId,
     email,
@@ -132,7 +126,6 @@ invitationSchema.statics.createInvitation = async function(data) {
     throw new Error('Active invitation already exists for this email');
   }
   
-  // Create invitation
   const invitation = await this.create({
     docId,
     email,
@@ -144,11 +137,9 @@ invitationSchema.statics.createInvitation = async function(data) {
     userAgent,
     expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
   });
-  
-  // Return invitation with plain token (only once!)
   return {
     invitation,
-    plainToken // Send this via email, never store it
+    plainToken
   };
 };
 
@@ -193,12 +184,9 @@ invitationSchema.methods.revoke = async function() {
 // Instance method: Increment attempt counter
 invitationSchema.methods.incrementAttempts = async function() {
   this.attempts += 1;
-  
-  // Auto-expire after 5 failed attempts
   if (this.attempts >= 5) {
     this.status = 'expired';
   }
-  
   await this.save();
   return this;
 };

@@ -89,9 +89,8 @@ export default function Dashboard() {
     } catch (error) {
       setError(error.message);
     }
-  }, [documents, backendUrl, getToken]);  // Deps: documents, backendUrl, getToken
+  }, [documents, backendUrl, getToken]);
 
-  // Format date (no useCallback needed, pure function)
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { 
@@ -102,7 +101,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchDocuments();
-  }, [fetchDocuments]);  // Now stable - warning gone
+  }, [fetchDocuments]);
 
   if (loading) {
     return (

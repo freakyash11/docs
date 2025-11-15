@@ -27,7 +27,7 @@ class EmailService {
 
       const msg = {
         to,
-        from: 'docsy.app@gmail.com',  // Verified in SendGrid
+        from: 'docsy.app@gmail.com',  
         subject,
         html
       };

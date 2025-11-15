@@ -31,25 +31,21 @@ export default function TextEditor({ role = 'owner' }) {
   const [socket, setSocket] = useState();
   const [quill, setQuill] = useState();
   const socketRef = useRef(null);
-  
-  // Share modal state
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [permissions, setPermissions] = useState({
     isPublic: false,
     collaborators: [],
     isOwner: false
   });
-  const [userRole, setUserRole] = useState(null); // Start with null, will be set by server
+  const [userRole, setUserRole] = useState(null); 
   const [isPublicDoc, setIsPublicDoc] = useState(false);
 
   const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
-  // Handle sign in redirect
   const handleSignInRedirect = () => {
     navigate('/auth');
   };
 
-  // Function to update document title via PATCH API
   const updateDocumentTitle = useCallback(async (newTitle) => {
     if (userRole === "viewer") return;
 
@@ -78,7 +74,6 @@ export default function TextEditor({ role = 'owner' }) {
     }
   }, [userRole, documentId, getToken, backendUrl]);
 
-  // Debounced title update handler
   const handleTitleChange = useCallback((e) => {
     const newTitle = e.target.value;
     setTitle(newTitle);
@@ -103,7 +98,6 @@ export default function TextEditor({ role = 'owner' }) {
   useEffect(() => {
     const connectSocket = async () => {
       try {
-        // Try to get token, but don't fail if not authenticated
         let token = null;
         try {
           token = await getToken();
@@ -112,7 +106,7 @@ export default function TextEditor({ role = 'owner' }) {
         }
 
         const s = io(backendUrl, {
-          auth: { token: token || '' }, // Send empty string if no token
+          auth: { token: token || '' }, 
           transports: ['websocket'],
           secure: true,
           withCredentials: true,
@@ -158,20 +152,12 @@ export default function TextEditor({ role = 'owner' }) {
 
     socket.once("load-document", (data) => {
       console.log('Document loaded with role:', data.role);
-      
-      // Set role from server response
       setUserRole(data.role);
       setIsPublicDoc(data.isPublic || false);
-      
-      // Load document content
       quill.setContents(data.data || []);
-      
-      // Set title from data
       if (data.title) {
         setTitle(data.title);
       }
-      
-      // Enable/disable editor based on role
       if (data.role === 'viewer') {
         quill.disable();
         console.log('Editor disabled for viewer');
@@ -184,7 +170,6 @@ export default function TextEditor({ role = 'owner' }) {
     socket.emit("get-document", documentId);
   }, [socket, quill, documentId]);
 
-  // Listen for permission updates from other users
   useEffect(() => {
     if (!socket) return;
 
@@ -198,13 +183,10 @@ export default function TextEditor({ role = 'owner' }) {
       if (data.updates.collaborators) {
         setPermissions(prev => ({ ...prev, collaborators: data.updates.collaborators }));
         
-        // Check if current user's role changed
         const userCollab = data.updates.collaborators.find(c => c.isCurrentUser);
         if (userCollab) {
           const newRole = userCollab.permission;
           setUserRole(newRole);
-          
-          // Disable/enable editor based on new role
           if (newRole === "viewer" && quill) {
             quill.disable();
             alert("Your access has been changed to view-only");
@@ -223,7 +205,6 @@ export default function TextEditor({ role = 'owner' }) {
     };
   }, [socket, quill]);
 
-  // Auto-save interval - only for editors/owners
   useEffect(() => {
     if (socket == null || quill == null || userRole === 'viewer' || !userRole) return;
 
@@ -236,7 +217,6 @@ export default function TextEditor({ role = 'owner' }) {
     };
   }, [socket, quill, userRole]);
 
-  // Receive changes from other users
   useEffect(() => {
     if (socket == null || quill == null) return;
 
@@ -250,7 +230,6 @@ export default function TextEditor({ role = 'owner' }) {
     };
   }, [socket, quill]);
 
-  // Send changes to other users - only for editors/owners
   useEffect(() => {
     if (socket == null || quill == null || userRole === 'viewer' || !userRole) return;
 
@@ -282,7 +261,7 @@ export default function TextEditor({ role = 'owner' }) {
 
   return (
     <div className="h-screen flex flex-col">
-      {/* Guest Banner - Show if user is not signed in and viewing public doc */}
+      {/* Guest Banner */}
       {!isSignedIn && isPublicDoc && userRole === 'viewer' && (
         <div className="bg-blue-50 border-b border-blue-200 px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-blue-800">
@@ -367,7 +346,6 @@ export default function TextEditor({ role = 'owner' }) {
         <div className="w-full max-w-4xl h-fit bg-white shadow-lg mx-4" ref={wrapperRef}></div>
       </div>
       
-      {/* Share Modal */}
       <ShareModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}

@@ -1,4 +1,4 @@
-import { verifyToken, createClerkClient } from '@clerk/backend';  // Named imports for latest v4+
+import { verifyToken, createClerkClient } from '@clerk/backend';  
 import User from '../models/User.js';
 
 const authMiddleware = async (req, res, next) => {
@@ -11,7 +11,7 @@ const authMiddleware = async (req, res, next) => {
   const token = authHeader.split(' ')[1];
   console.log('Token length:', token.length);
   try {
-    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });  // Initialize client
+    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY }); 
 
     const payload = await verifyToken(token, {
       jwtKey: process.env.CLERK_JWT_VERIFICATION_KEY,
@@ -22,27 +22,23 @@ const authMiddleware = async (req, res, next) => {
 
     const clerkId = payload.sub;
     console.log('Token verified - clerkId:', clerkId);
-
-    // Find or create user
     let user = await User.findOne({ clerkId });
     if (!user) {
-  // Fetch full user data from Clerk if payload is incomplete
-  let fullUser;
-  try {
+    let fullUser;
+    try {
     fullUser = await clerk.users.getUser(clerkId);
-    console.log('Full user fetched from Clerk:', fullUser ? 'Success' : 'Null');  // Log fetch result
+    console.log('Full user fetched from Clerk:', fullUser ? 'Success' : 'Null');
     if (fullUser) {
-      console.log('Full user name:', fullUser.firstName, fullUser.lastName);  // Debug name
-      console.log('Full user email:', fullUser.emailAddresses?.[0]?.emailAddress);  // Debug email
+      console.log('Full user name:', fullUser.firstName, fullUser.lastName);
+      console.log('Full user email:', fullUser.emailAddresses?.[0]?.emailAddress);
     }
   } catch (fetchError) {
     console.warn('Failed to fetch full user from Clerk:', fetchError.message);
     fullUser = null;
   }
-
   // Robust fallback: Prioritize fullUser, then payload, then defaults
   const firstName = fullUser?.firstName || payload.first_name || '';
-  const lastName = fullUser?.lastName || payload.last_name || payload.family_name || '';  // family_name as fallback
+  const lastName = fullUser?.lastName || payload.last_name || payload.family_name || ''; 
   const name = `${firstName} ${lastName}`.trim() || payload.name || 'New User';
 
   const email = fullUser?.emailAddresses?.[0]?.emailAddress || payload.email || 'no-email@example.com';

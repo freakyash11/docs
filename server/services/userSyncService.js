@@ -42,7 +42,6 @@ class UserSyncService {
     }
   }
 
-  // Get or create user (for middleware/routes)
   static async getOrCreateUser(clerkId) {
     try {
       let user = await User.findOne({ clerkId });
@@ -58,7 +57,6 @@ class UserSyncService {
     }
   }
 
-  // Batch sync multiple users
   static async batchSyncUsers(clerkIds) {
     const results = [];
     
@@ -74,7 +72,6 @@ class UserSyncService {
     return results;
   }
 
-  // Clean up orphaned users (users in DB but not in Clerk)
   static async cleanupOrphanedUsers() {
     try {
       const dbUsers = await User.find({}, 'clerkId');
@@ -102,7 +99,6 @@ class UserSyncService {
     }
   }
 
-  // Update user's last seen timestamp
   static async updateLastSeen(clerkId) {
     try {
       await User.findOneAndUpdate(

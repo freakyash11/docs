@@ -19,7 +19,6 @@ export default function ShareModal({
   const [error, setError] = useState("")
   const [copySuccess, setCopySuccess] = useState(false)
 
-  // Handle resend invitation
   const handleResendInvite = async (inviteId) => {
     try {
       const token = await getToken()
@@ -34,14 +33,9 @@ export default function ShareModal({
         const data = await response.json()
         throw new Error(data.error || 'Failed to resend invitation')
       }
-
       const data = await response.json()
-      
-      // Show success message
       setSaveStatus('Invitation resent successfully')
       setTimeout(() => setSaveStatus(''), 3000)
-
-      // Update pending invites list
       setPendingInvites(prev => prev.map(invite => 
         invite.id === inviteId 
           ? { ...data.invitation, id: data.invitation.id } 
@@ -54,7 +48,7 @@ export default function ShareModal({
     }
   }
 
-  // Handle revoke invitation
+
   const handleRevokeInvite = async (inviteId) => {
     try {
       const token = await getToken()
@@ -69,11 +63,7 @@ export default function ShareModal({
         const data = await response.json()
         throw new Error(data.error || 'Failed to revoke invitation')
       }
-
-      // Remove from pending invites list
       setPendingInvites(prev => prev.filter(invite => invite.id !== inviteId))
-      
-      // Show success message
       setSaveStatus('Invitation revoked')
       setTimeout(() => setSaveStatus(''), 3000)
 
@@ -83,7 +73,6 @@ export default function ShareModal({
     }
   }
 
-  // Copy link to clipboard
   const handleCopyLink = async () => {
     try {
       const documentLink = `${window.location.origin}/documents/${documentId}`
@@ -96,7 +85,6 @@ export default function ShareModal({
     }
   }
 
-  // Fetch document permissions when modal opens
   useEffect(() => {
     const fetchDocumentPermissions = async () => {
       if (!isOpen || !documentId) return;
@@ -110,11 +98,8 @@ export default function ShareModal({
         });
 
         if (!response.ok) throw new Error('Failed to fetch document');
-        
         const data = await response.json();
         console.log('📄 Document data loaded:', data);
-        
-        // Update local state with document permissions
         setIsPublic(data.document?.isPublic || false);
         setCollaborators(data.document?.collaborators || []);
       } catch (err) {
@@ -125,7 +110,6 @@ export default function ShareModal({
     fetchDocumentPermissions();
   }, [isOpen, documentId, getToken, backendUrl]);
 
-  // Update local state when props change
   useEffect(() => {
     if (currentPermissions) {
       console.log('🔐 ShareModal received permissions:', currentPermissions);
@@ -134,7 +118,6 @@ export default function ShareModal({
     }
   }, [currentPermissions]);
 
-  // Fetch pending invitations when modal opens
   useEffect(() => {
     const fetchPendingInvites = async () => {
       if (!isOpen) return;
@@ -159,7 +142,6 @@ export default function ShareModal({
     fetchPendingInvites()
   }, [isOpen, documentId, getToken, backendUrl])
 
-  // Update permissions on backend
   const updatePermissions = async (updates) => {
     try {
       setSaveStatus("saving")
@@ -179,10 +161,7 @@ export default function ShareModal({
         const data = await response.json()
         throw new Error(data.error || 'Failed to update permissions')
       }
-
       const data = await response.json()
-      
-      // Notify other collaborators via socket
       if (socket) {
         socket.emit("permissions-updated", {
           documentId,
@@ -202,7 +181,6 @@ export default function ShareModal({
     }
   }
 
-  // Toggle public/private
   const handlePublicToggle = async () => {
     const newIsPublic = !isPublic
     setIsPublic(newIsPublic)
@@ -210,30 +188,24 @@ export default function ShareModal({
     try {
       await updatePermissions({ isPublic: newIsPublic })
     } catch (err) {
-      setIsPublic(!newIsPublic) // Revert on error
+      setIsPublic(!newIsPublic) 
     }
   }
 
-  // Send invitation
   const handleAddCollaborator = async () => {
     if (!newEmail.trim()) {
       setError("Please enter an email address")
       return
     }
-
-    // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(newEmail)) {
       setError("Please enter a valid email address")
       return
     }
-
-    // Check if already exists
     if (collaborators.some(c => c.email === newEmail)) {
       setError("This user is already a collaborator")
       return
     }
-
     setSaveStatus("sending")
     setError("")
 
@@ -257,24 +229,15 @@ export default function ShareModal({
       }
 
       const data = await response.json()
-      
-      // Show success message
       setSaveStatus("sent")
       setNewEmail("")
-      
-      // Add to pending invites list
       setPendingInvites(prev => [...prev, data.invitation])
-      
       const successMessage = `Invitation sent to ${newEmail} (expires in 7 days)`
       setError("")
       setSaveStatus(successMessage)
-      
-      // Clear success message after 3 seconds
       setTimeout(() => {
         setSaveStatus("")
       }, 3000)
-
-      // Notify other collaborators via socket
       if (socket) {
         socket.emit("invitation-sent", {
           documentId,
@@ -289,7 +252,6 @@ export default function ShareModal({
     }
   }
 
-  // Update collaborator role
   const handleUpdateRole = async (email, newPermission) => {
     const updatedCollaborators = collaborators.map(c =>
       c.email === email ? { ...c, permission: newPermission } : c
@@ -299,11 +261,10 @@ export default function ShareModal({
     try {
       await updatePermissions({ collaborators: updatedCollaborators })
     } catch (err) {
-      setCollaborators(collaborators) // Revert on error
+      setCollaborators(collaborators) 
     }
   }
 
-  // Remove collaborator
   const handleRemoveCollaborator = async (email) => {
     const updatedCollaborators = collaborators.filter(c => c.email !== email)
     setCollaborators(updatedCollaborators)
@@ -311,7 +272,7 @@ export default function ShareModal({
     try {
       await updatePermissions({ collaborators: updatedCollaborators })
     } catch (err) {
-      setCollaborators(collaborators) // Revert on error
+      setCollaborators(collaborators) 
     }
   }
 

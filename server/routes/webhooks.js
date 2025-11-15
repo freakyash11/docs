@@ -4,7 +4,6 @@ import User from '../models/User.js';
 
 const router = express.Router();
 
-// Webhook endpoint
 router.post('/clerk-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
   
@@ -16,9 +15,8 @@ router.post('/clerk-webhook', express.raw({ type: 'application/json' }), async (
   const headers = req.headers;
   const payload = req.body;
 
-  console.log('Webhook received - body length:', req.body.length);  // Confirm receipt
+  console.log('Webhook received - body length:', req.body.length);  
 
-  // Verify webhook signature using crypto
   const svix_id = headers['svix-id'];
   const svix_timestamp = headers['svix-timestamp'];
   const svix_signature = headers['svix-signature'];
@@ -63,7 +61,7 @@ router.post('/clerk-webhook', express.raw({ type: 'application/json' }), async (
   let evt;
   try {
     evt = JSON.parse(body);
-    console.log('Payload parsed - type:', evt.type, 'user ID: evt.data.id');  // Log payload
+    console.log('Payload parsed - type:', evt.type, 'user ID: evt.data.id');
   } catch (err) {
     console.log('JSON parse error:', err.message);
     return res.status(400).json({ error: 'Invalid JSON' });

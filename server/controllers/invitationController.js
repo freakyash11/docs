@@ -4,7 +4,6 @@ import User from '../models/User.js';
 import mongoose from 'mongoose';
 import { emailService } from '../services/emailService.js';
 
-// Rate limiting: Track invites per user/email
 const inviteRateLimits = new Map();
 const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
 const MAX_INVITES_PER_HOUR = 10;
@@ -52,18 +51,16 @@ async function checkEmailRateLimit(email, documentId) {
   return { allowed: true };
 }
 
-// Create invitation (send invite)
 export const createInvitation = async (req, res) => {
   try {
     const { id: documentId } = req.params;
     const { email, role, notes } = req.body;
-    const userId = req.userId; // From auth middleware (Clerk ID)
+    const userId = req.userId; 
     const ip = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     const userAgent = req.headers['user-agent'];
 
     console.log('createInvitation called - documentId:', documentId, 'Body:', req.body, 'UserId:', userId);
 
-    // Validate inputs
     if (!documentId) {
       return res.status(400).json({ error: 'Document ID is required in URL params' });
     }
@@ -84,12 +81,10 @@ export const createInvitation = async (req, res) => {
       return res.status(400).json({ error: 'Invalid role. Must be editor or viewer' });
     }
 
-    // Validate document ID
     if (!mongoose.Types.ObjectId.isValid(documentId)) {
       return res.status(400).json({ error: 'Invalid document ID' });
     }
 
-    // Find user by Clerk ID
     const user = await User.findOne({ clerkId: userId });
     console.log('User query - clerkId:', userId, 'Result:', user ? 'Found' : 'Not found', '- DB _id:', user?._id);
     if (!user) {
@@ -120,7 +115,6 @@ export const createInvitation = async (req, res) => {
       return res.status(404).json({ error: 'Document not found' });
     }
 
-    // Check if user is owner or editor
     const isOwner = document.ownerId.toString() === user._id.toString();
     const isEditor = document.collaborators.some(c => 
       c.userId?._id.toString() === user._id.toString() && c.permission === 'editor'
@@ -130,12 +124,10 @@ export const createInvitation = async (req, res) => {
       return res.status(403).json({ error: 'Only document owner or editors can send invitations' });
     }
 
-    // Editors can only invite viewers
     if (!isOwner && role === 'editor') {
       return res.status(403).json({ error: 'Only document owner can invite editors' });
     }
 
-    // Check if user is already a collaborator
     const existingCollab = document.collaborators.find(c => c.email === email);
     if (existingCollab) {
       return res.status(400).json({ error: 'User is already a collaborator' });
@@ -171,7 +163,6 @@ export const createInvitation = async (req, res) => {
 
     if (!emailResult.success) {
       console.warn('Email send failed (invitation saved):', emailResult.error);
-      // Optional: Log to DB for retry
     }
 
     console.log('📧 Invitation created:', {
@@ -205,29 +196,24 @@ export const createInvitation = async (req, res) => {
   }
 };
 
-// Get invitation by token (validate before showing accept page)
+
 export const getInvitationByToken = async (req, res) => {
   try {
     const { token } = req.params;
-    
     if (!token) {
       return res.status(400).json({ error: 'Token is required' });
     }
-    
-    // Find invitation by hashed token
+
     const invitation = await Invitation.findByToken(token);
-    
     if (!invitation) {
       return res.status(404).json({ error: 'Invitation not found or invalid' });
     }
-    
-    // Check if expired
+     
     if (invitation.isExpired) {
-      await invitation.save(); // Trigger pre-save middleware to mark as expired
+      await invitation.save(); 
       return res.status(410).json({ error: 'Invitation has expired' });
     }
     
-    // Check if already used
     if (invitation.status !== 'pending') {
       return res.status(400).json({ 
         error: `Invitation has been ${invitation.status}`,
@@ -235,7 +221,6 @@ export const getInvitationByToken = async (req, res) => {
       });
     }
     
-    // Return invitation details (without sensitive data)
     res.json({
       success: true,
       invitation: {
@@ -246,7 +231,7 @@ export const getInvitationByToken = async (req, res) => {
         invitedBy: invitation.invitedBy?.name,
         expiresAt: invitation.expiresAt,
         status: invitation.status,
-        requiresAuth: !req.userId // Flag if user needs to log in
+        requiresAuth: !req.userId 
       }
     });
   } catch (error) {
@@ -255,11 +240,10 @@ export const getInvitationByToken = async (req, res) => {
   }
 };
 
-// Validate invitation (check email match)
 export const validateInvitation = async (req, res) => {
   try {
     const { token } = req.params;
-    const userId = req.userId; // From optional auth middleware
+    const userId = req.userId; 
     
     if (!token) {
       return res.status(400).json({ error: 'Token is required' });
@@ -276,7 +260,6 @@ export const validateInvitation = async (req, res) => {
       });
     }
     
-    // If user is logged in, check email match
     if (userId) {
       const user = await User.findOne({ clerkId: userId });
       if (!user) {
@@ -294,11 +277,10 @@ export const validateInvitation = async (req, res) => {
           documentTitle: invitation.docId?.title,
           invitedBy: invitation.invitedBy?.name,
           emailMatches,
-          canAccept: emailMatches // Only allow accept if email matches
+          canAccept: emailMatches 
         }
       });
     } else {
-      // User not logged in - return basic info
       res.json({
         success: true,
         invitation: {
@@ -407,40 +389,34 @@ export const acceptInvitation = async (req, res) => {
   }
 };
 
-// Add this to your invitationController.js
+
 
 export const updateDocumentPermissions = async (req, res) => {
   try {
     const { documentId } = req.params;
-    const userId = req.userId; // From auth middleware
-    const updates = req.body; // { isPublic, collaborators }
-
+    const userId = req.userId; 
+    const updates = req.body; 
     console.log('updateDocumentPermissions called:', { documentId, userId, updates });
 
-    // Find user by Clerk ID
     const user = await User.findOne({ clerkId: userId });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Find document
     const document = await Document.findById(documentId);
     if (!document) {
       return res.status(404).json({ error: 'Document not found' });
     }
 
-    // Check if user is owner
     if (document.ownerId.toString() !== user._id.toString()) {
       return res.status(403).json({ error: 'Only the owner can update document permissions' });
     }
 
-    // Update isPublic if provided
     if (updates.isPublic !== undefined) {
       document.isPublic = updates.isPublic;
       console.log('Updated isPublic to:', updates.isPublic);
     }
 
-    // Update collaborators if provided
     if (updates.collaborators) {
       document.collaborators = updates.collaborators.map(collab => ({
         userId: collab.userId,
@@ -467,35 +443,32 @@ export const updateDocumentPermissions = async (req, res) => {
     res.status(500).json({ error: 'Failed to update document permissions' });
   }
 };
-// Revoke invitation (owner can cancel pending invites)
+
+
 export const revokeInvitation = async (req, res) => {
   try {
     const { invitationId } = req.params;
-    const userId = req.userId; // Clerk ID
+    const userId = req.userId;
     
     if (!mongoose.Types.ObjectId.isValid(invitationId)) {
       return res.status(400).json({ error: 'Invalid invitation ID' });
     }
     
-    // Find user
     const user = await User.findOne({ clerkId: userId });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    // Find invitation
     const invitation = await Invitation.findById(invitationId);
     if (!invitation) {
       return res.status(404).json({ error: 'Invitation not found' });
     }
     
-    // Check if user is the document owner
     const document = await Document.findById(invitation.docId);
     if (!document || document.ownerId.toString() !== user._id.toString()) {
       return res.status(403).json({ error: 'Only document owner can revoke invitations' });
     }
     
-    // Revoke invitation
     await invitation.revoke();
     
     console.log('🚫 Invitation revoked:', {
@@ -527,13 +500,12 @@ export const revokeInvitation = async (req, res) => {
 export const getDocumentInvitations = async (req, res) => {
   try {
     const { documentId } = req.params;
-    const userId = req.userId; // Clerk ID
+    const userId = req.userId;
     
     if (!mongoose.Types.ObjectId.isValid(documentId)) {
       return res.status(400).json({ error: 'Invalid document ID' });
     }
     
-    // Find user
     const user = await User.findOne({ clerkId: userId });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -557,13 +529,13 @@ export const getDocumentInvitations = async (req, res) => {
       expiresAt: inv.expiresAt,
       createdAt: inv.createdAt,
       acceptedAt: inv.acceptedAt,
-      acceptedBy: inv.acceptedBy // Add this if you track who accepted
+      acceptedBy: inv.acceptedBy 
     }));
 
     res.json({
       success: true,
       invitations: formattedInvitations,
-      document: {  // ADD THIS
+      document: { 
         isPublic: document.isPublic
       }
     });
@@ -573,7 +545,6 @@ export const getDocumentInvitations = async (req, res) => {
   }
 };
 
-// Resend invitation (creates new token, marks old as revoked)
 export const resendInvitation = async (req, res) => {
   try {
     const { invitationId } = req.params;
@@ -585,25 +556,21 @@ export const resendInvitation = async (req, res) => {
       return res.status(400).json({ error: 'Invalid invitation ID' });
     }
     
-    // Find user
     const user = await User.findOne({ clerkId: userId });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    // Find old invitation
     const oldInvitation = await Invitation.findById(invitationId);
     if (!oldInvitation) {
       return res.status(404).json({ error: 'Invitation not found' });
     }
     
-    // Check ownership
     const document = await Document.findById(oldInvitation.docId);
     if (!document || document.ownerId.toString() !== user._id.toString()) {
       return res.status(403).json({ error: 'Only document owner can resend invitations' });
     }
     
-    // Check rate limit
     const userRateLimit = checkUserRateLimit(user._id.toString());
     if (!userRateLimit.allowed) {
       return res.status(429).json({ 
@@ -616,7 +583,6 @@ export const resendInvitation = async (req, res) => {
       await oldInvitation.revoke();
     }
     
-    // Create new invitation
     const { invitation, plainToken } = await Invitation.createInvitation({
       docId: oldInvitation.docId,
       email: oldInvitation.email,
@@ -627,11 +593,9 @@ export const resendInvitation = async (req, res) => {
       userAgent
     });
     
-    // Generate new link
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const inviteLink = `${frontendUrl}/accept-invite?token=${plainToken}`;
     
-    // Send invitation email
     await emailService.sendEmail({
       to: invitation.email,
       subject: `${user.name} sent you another invitation to collaborate on ${document.title}`,
@@ -669,7 +633,6 @@ export const resendInvitation = async (req, res) => {
   }
 };
 
-// Cleanup: Expire old pending invitations (run periodically via cron)
 export const cleanupExpiredInvitations = async (req, res) => {
   try {
     const result = await Invitation.updateMany(

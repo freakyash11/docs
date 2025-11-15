@@ -55,7 +55,6 @@ function setupSocket(server, redis) {
           });
           socket.userId = payload.sub; // Clerk ID
           
-          // Find the MongoDB user
           const user = await User.findOne({ clerkId: socket.userId });
           if (user) {
             socket.mongoUserId = user._id.toString();
