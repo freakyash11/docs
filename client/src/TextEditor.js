@@ -363,8 +363,8 @@ export default function TextEditor({ role = 'owner' }) {
       </div>
 
       {/* Editor Container */}
-      <div className="flex-1 overflow-auto bg-gray-50 flex justify-center">
-        <div className="w-full max-w-4xl bg-white shadow-lg my-8 mx-4" ref={wrapperRef}></div>
+      <div className="flex-1 overflow-auto bg-gray-50 flex justify-center py-8">
+        <div className="w-full max-w-4xl h-fit bg-white shadow-lg mx-4" ref={wrapperRef}></div>
       </div>
       
       {/* Share Modal */}
