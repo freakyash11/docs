@@ -299,63 +299,67 @@ export default function TextEditor({ role = 'owner' }) {
       )}
 
       {/* Title Bar */}
-      <div className="px-6 py-4 border-b border-gray-200 bg-white flex items-center gap-3 shadow-sm">
-        <input
-          type="text"
-          value={title}
-          onChange={handleTitleChange}
-          onFocus={() => setIsEditingTitle(true)}
-          onBlur={handleTitleBlur}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.target.blur();
-            }
-          }}
-          className={`text-xl font-medium border-none outline-none px-3 py-2 rounded-md flex-1 max-w-2xl cursor-text transition-colors ${
-            isEditingTitle ? 'bg-gray-100' : 'bg-transparent'
-          }`}
-          placeholder="Untitled Document"
-          disabled={userRole === "viewer"}
-        />
+      <div className="px-6 py-4 border-b border-gray-200 bg-white flex items-center justify-between gap-3 shadow-sm">
+        <div className="flex items-center gap-3 flex-1">
+          <input
+            type="text"
+            value={title}
+            onChange={handleTitleChange}
+            onFocus={() => setIsEditingTitle(true)}
+            onBlur={handleTitleBlur}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.target.blur();
+              }
+            }}
+            className={`text-xl font-medium border-none outline-none px-3 py-2 rounded-md max-w-2xl cursor-text transition-colors ${
+              isEditingTitle ? 'bg-gray-100' : 'bg-transparent'
+            }`}
+            placeholder="Untitled Document"
+            disabled={userRole === "viewer"}
+          />
+          
+          {saveStatus === "saving" && (
+            <span className="text-sm text-gray-600 font-medium flex items-center gap-2">
+              <span className="inline-block w-3.5 h-3.5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+              Saving...
+            </span>
+          )}
+          {saveStatus === "saved" && (
+            <span className="text-sm text-green-600 font-medium flex items-center gap-1.5">
+              <span className="text-base">✔</span> Saved
+            </span>
+          )}
+        </div>
         
-        {/* User Role Badge */}
-        {userRole === "viewer" && (
-          <span className="px-3 py-1 bg-gray-100 text-gray-600 text-sm font-medium rounded-full">
-            View Only
-          </span>
-        )}
-        {userRole === "editor" && (
-          <span className="px-3 py-1 bg-blue-100 text-blue-600 text-sm font-medium rounded-full">
-            Editor
-          </span>
-        )}
-        {userRole === "owner" && (
-          <span className="px-3 py-1 bg-green-100 text-green-600 text-sm font-medium rounded-full">
-            Owner
-          </span>
-        )}
-        
-        {saveStatus === "saving" && (
-          <span className="text-sm text-gray-600 font-medium flex items-center gap-2">
-            <span className="inline-block w-3.5 h-3.5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
-            Saving...
-          </span>
-        )}
-        {saveStatus === "saved" && (
-          <span className="text-sm text-green-600 font-medium flex items-center gap-1.5">
-            <span className="text-base">✔</span> Saved
-          </span>
-        )}
-        
-        {/* Share Button */}
-        <button
-          onClick={() => setIsShareModalOpen(true)}
-          disabled={userRole === "viewer"}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
-        >
-          <Share2 className="w-4 h-4" />
-          Share
-        </button>
+        <div className="flex items-center gap-3">
+          {/* User Role Badge */}
+          {userRole === "viewer" && (
+            <span className="px-3 py-1 bg-gray-100 text-gray-600 text-sm font-medium rounded-full">
+              View Only
+            </span>
+          )}
+          {userRole === "editor" && (
+            <span className="px-3 py-1 bg-blue-100 text-blue-600 text-sm font-medium rounded-full">
+              Editor
+            </span>
+          )}
+          {userRole === "owner" && (
+            <span className="px-3 py-1 bg-green-100 text-green-600 text-sm font-medium rounded-full">
+              Owner
+            </span>
+          )}
+          
+          {/* Share Button */}
+          <button
+            onClick={() => setIsShareModalOpen(true)}
+            disabled={userRole === "viewer"}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            <Share2 className="w-4 h-4" />
+            Share
+          </button>
+        </div>
       </div>
 
       {/* Editor Container */}
