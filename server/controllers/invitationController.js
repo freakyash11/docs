@@ -110,27 +110,33 @@ export const createInvitation = async (req, res) => {
       return res.status(400).json({ error: 'User is already a collaborator' });
     }
 
-    // Check for existing pending invitation
-    const existingInvite = await Invitation.findOne({
-      docId: documentId,
-      email: email.toLowerCase(),
-      status: 'pending'
-    });
-
-    if (existingInvite) {
-      return res.status(400).json({ error: 'An invitation is already pending for this email' });
-    }
-
-    // Create invitation
-    const invitation = await Invitation.create({
+    // Use the static method from your schema to create invitation
+    const { invitation, plainToken } = await Invitation.createInvitation({
       docId: documentId,
       email: email.toLowerCase(),
       role: role,
       invitedBy: user._id,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      ip: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('user-agent')
     });
 
-    console.log('Invitation created:', invitation._id);
+    console.log('Invitation created:', invitation._id, 'Token generated');
+
+    // Generate invitation link
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const inviteLink = `${frontendUrl}/invite/${plainToken}`;
+
+    await emailService.sendEmail({
+      to: email,
+      subject: `${user.name} invited you to collaborate on ${document.title}`,
+      template: 'invitation',
+      context: {
+        senderName: user.name,
+        documentName: document.title,
+        invitationLink: inviteLink,
+        recipientEmail: email
+      }
+    });
 
     res.status(201).json({
       success: true,
@@ -141,11 +147,18 @@ export const createInvitation = async (req, res) => {
         role: invitation.role,
         expiresAt: invitation.expiresAt,
         status: invitation.status
-      }
+      },
+      inviteLink: inviteLink // Include link in response (for testing/copying)
     });
 
   } catch (error) {
     console.error('Create invitation error:', error.message, error.stack);
+    
+    // Handle duplicate invitation error
+    if (error.message.includes('Active invitation already exists')) {
+      return res.status(400).json({ error: error.message });
+    }
+    
     res.status(500).json({ error: 'Failed to create invitation' });
   }
 };
