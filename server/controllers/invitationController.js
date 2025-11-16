@@ -55,7 +55,7 @@ export const createInvitation = async (req, res) => {
   try {
     const { id: documentId } = req.params;
     const { email, role } = req.body;
-    const userId = req.userId; // Clerk ID
+    const userId = req.userId;
 
     console.log('CreateInvitation called - documentId:', documentId, 'Body:', req.body, 'UserId:', userId);
 
@@ -86,13 +86,13 @@ export const createInvitation = async (req, res) => {
       return res.status(500).json({ error: 'Document has no owner' });
     }
 
-    // Since ownerId is stored as String in your schema, convert user._id to string for comparison
+    // Convert BOTH to strings for comparison
+    const ownerIdString = document.ownerId.toString();
     const userIdString = user._id.toString();
     
-    console.log('Comparing - document.ownerId (string):', document.ownerId, 'user._id.toString():', userIdString);
+    console.log('Comparing - ownerIdString:', ownerIdString, 'userIdString:', userIdString);
 
-    // Direct string comparison (no .toString() on document.ownerId since it's already a string)
-    if (document.ownerId !== userIdString) {
+    if (ownerIdString !== userIdString) {
       return res.status(403).json({ error: 'Only the document owner can send invitations' });
     }
 
