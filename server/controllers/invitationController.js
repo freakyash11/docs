@@ -54,144 +54,98 @@ async function checkEmailRateLimit(email, documentId) {
 export const createInvitation = async (req, res) => {
   try {
     const { id: documentId } = req.params;
-    const { email, role, notes } = req.body;
-    const userId = req.userId; 
-    const ip = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-    const userAgent = req.headers['user-agent'];
+    const { email, role } = req.body;
+    const userId = req.userId; // Clerk ID
 
-    console.log('createInvitation called - documentId:', documentId, 'Body:', req.body, 'UserId:', userId);
+    console.log('CreateInvitation called - documentId:', documentId, 'Body:', req.body, 'UserId:', userId);
 
-    if (!documentId) {
-      return res.status(400).json({ error: 'Document ID is required in URL params' });
-    }
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required in request body' });
-    }
-    if (!role) {
-      return res.status(400).json({ error: 'Role is required in request body' });
+    if (!email || !role) {
+      return res.status(400).json({ error: 'Email and role are required' });
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ error: 'Invalid email format' });
-    }
-
-    if (!['editor', 'viewer'].includes(role)) {
-      return res.status(400).json({ error: 'Invalid role. Must be editor or viewer' });
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(documentId)) {
-      return res.status(400).json({ error: 'Invalid document ID' });
+    if (!['viewer', 'editor'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role. Must be viewer or editor' });
     }
 
     const user = await User.findOne({ clerkId: userId });
-    console.log('User query - clerkId:', userId, 'Result:', user ? 'Found' : 'Not found', '- DB _id:', user?._id);
+    console.log('User query - clerkId:', userId, 'Result:', user ? `Found - DB _id: ${user._id}` : 'Not found');
+    
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Rate limit: Check user
-    const userRateLimit = checkUserRateLimit(user._id.toString());
-    if (!userRateLimit.allowed) {
-      return res.status(429).json({ 
-        error: `Rate limit exceeded. Try again in ${userRateLimit.resetIn} minutes`,
-        retryAfter: userRateLimit.resetIn * 60
-      });
-    }
-
-    // Rate limit: Check email
-    const emailRateLimit = await checkEmailRateLimit(email, documentId);
-    if (!emailRateLimit.allowed) {
-      return res.status(429).json({ 
-        error: 'Too many invitations sent to this email. Try again tomorrow',
-        count: emailRateLimit.count
-      });
-    }
-
-    // Check if document exists and user has permission to invite
     const document = await Document.findById(documentId);
+    console.log('Document query - documentId:', documentId, 'Result:', document ? `Found - ownerId: ${document.ownerId}` : 'Not found');
+    
     if (!document) {
       return res.status(404).json({ error: 'Document not found' });
     }
 
-    const isOwner = document.ownerId.toString() === user._id.toString();
-    const isEditor = document.collaborators.some(c => 
-      c.userId?._id.toString() === user._id.toString() && c.permission === 'editor'
+    if (!document.ownerId) {
+      console.error('Document has no ownerId!', document);
+      return res.status(500).json({ error: 'Document has no owner' });
+    }
+
+    // Since ownerId is stored as String in your schema, convert user._id to string for comparison
+    const userIdString = user._id.toString();
+    
+    console.log('Comparing - document.ownerId (string):', document.ownerId, 'user._id.toString():', userIdString);
+
+    // Direct string comparison (no .toString() on document.ownerId since it's already a string)
+    if (document.ownerId !== userIdString) {
+      return res.status(403).json({ error: 'Only the document owner can send invitations' });
+    }
+
+    // Check if user is inviting themselves
+    if (email.toLowerCase() === user.email.toLowerCase()) {
+      return res.status(400).json({ error: 'You cannot invite yourself' });
+    }
+
+    // Check if already a collaborator
+    const existingCollab = document.collaborators.find(
+      c => c.email && c.email.toLowerCase() === email.toLowerCase()
     );
 
-    if (!isOwner && !isEditor) {
-      return res.status(403).json({ error: 'Only document owner or editors can send invitations' });
-    }
-
-    if (!isOwner && role === 'editor') {
-      return res.status(403).json({ error: 'Only document owner can invite editors' });
-    }
-
-    const existingCollab = document.collaborators.find(c => c.email === email);
     if (existingCollab) {
       return res.status(400).json({ error: 'User is already a collaborator' });
     }
 
-    // Create invitation with security logging
-    const { invitation, plainToken } = await Invitation.createInvitation({
+    // Check for existing pending invitation
+    const existingInvite = await Invitation.findOne({
       docId: documentId,
-      email,
-      role,
-      invitedBy: user._id,
-      notes,
-      ip,
-      userAgent
+      email: email.toLowerCase(),
+      status: 'pending'
     });
 
-    // Generate invitation link
-    const frontendUrl = 'https://docsy-client.vercel.app/';
-    const inviteLink = `${frontendUrl}/invite/${plainToken}`;
-
-    // Send invitation email - non-blocking
-    const emailResult = await emailService.sendEmail({
-      to: email,
-      subject: `${user.name} invited you to collaborate on ${document.title}`,
-      template: 'invitation',
-      context: {
-        senderName: user.name,
-        documentName: document.title,
-        invitationLink: inviteLink,
-        recipientEmail: email,
-      }
-    }).catch(error => ({ success: false, error: error.message }));
-
-    if (!emailResult.success) {
-      console.warn('Email send failed (invitation saved):', emailResult.error);
+    if (existingInvite) {
+      return res.status(400).json({ error: 'An invitation is already pending for this email' });
     }
 
-    console.log('📧 Invitation created:', {
-      id: invitation._id,
-      email,
-      role,
-      link: inviteLink,
-      expiresAt: invitation.expiresAt
+    // Create invitation
+    const invitation = await Invitation.create({
+      docId: documentId,
+      email: email.toLowerCase(),
+      role: role,
+      invitedBy: user._id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     });
+
+    console.log('Invitation created:', invitation._id);
 
     res.status(201).json({
       success: true,
+      message: 'Invitation sent successfully',
       invitation: {
         id: invitation._id,
         email: invitation.email,
         role: invitation.role,
         expiresAt: invitation.expiresAt,
         status: invitation.status
-      },
-      // Only return link in development for testing
-      ...(process.env.NODE_ENV !== 'production' && { inviteLink })
+      }
     });
+
   } catch (error) {
-    console.error('Create invitation error:', error.message);
-    
-    if (error.message === 'Active invitation already exists for this email') {
-      return res.status(409).json({ error: error.message });
-    }
-    
+    console.error('Create invitation error:', error.message, error.stack);
     res.status(500).json({ error: 'Failed to create invitation' });
   }
 };
