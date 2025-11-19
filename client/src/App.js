@@ -6,12 +6,13 @@ import {
   Navigate,
 } from "react-router-dom";
 //import { v4 as uuidV4 } from "uuid";
-import { ClerkProvider } from "@clerk/clerk-react";
+import { ClerkProvider, SignedIn, SignedOut } from "@clerk/clerk-react";
 import AuthPage from "./components/AuthPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import Dashboard from './components/Dashboard';
 import InvitePage from './components/InvitePage';
+import DocsyLanding from './components/LandingPage';
 //comment
 // Wrapper component to generate UUID only when the root route is rendered
 // const NewDocumentRedirect = () => {
@@ -23,8 +24,29 @@ function App() {
     <ClerkProvider publishableKey={process.env.REACT_APP_CLERK_PUBLISHABLE_KEY} routing="path">
     <Router>
       <Routes>
-       <Route path="/" element={<Navigate to="/dashboard" />} />
+       <Route path="/" element={
+        <Route 
+            path="/" 
+            element={
+              <>
+                <SignedIn>
+                  <Navigate to="/dashboard" replace />
+                </SignedIn>
+
+                <SignedOut>
+                  <Layout>
+                    <DocsyLanding />
+                  </Layout>
+                </SignedOut>
+              </>
+            } 
+          />
+       } />
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/landing" element={
+          <Layout>
+            <DocsyLanding />
+          </Layout>} />
         <Route path="/dashboard" element={
         <ProtectedRoute>
           <Layout>
