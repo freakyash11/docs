@@ -13,7 +13,7 @@ export default function UserProfileHeader() {
       <img 
         src={logoSrc} 
         alt="Docsy Logo" 
-        className="h-10 mr-2.5" 
+        className="h-12 w-auto object-contain"
       />
     </div>
   );
