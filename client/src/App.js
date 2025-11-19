@@ -24,7 +24,6 @@ function App() {
     <ClerkProvider publishableKey={process.env.REACT_APP_CLERK_PUBLISHABLE_KEY} routing="path">
     <Router>
       <Routes>
-       <Route path="/" element={
         <Route 
             path="/" 
             element={
@@ -41,7 +40,6 @@ function App() {
               </>
             } 
           />
-       } />
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/landing" element={
           <Layout>
