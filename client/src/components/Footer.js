@@ -11,13 +11,13 @@ const Footer = () => {
 <div>
       <div className="flex items-center gap-3 mb-4">
     {/* We add a white background container (bg-white) with padding (p-2) and rounded corners (rounded-xl) */}
-       <div className="bg-white p-2 rounded-xl inline-block">
-      <img 
-        src="/logo.png" 
-        alt="Docsy Logo" 
-        className="h-10 w-auto object-contain block" 
-      />
-      </div>
+       <div className="bg-white p-4 rounded-xl inline-block">
+                <img 
+                  src={logoSrc} 
+                  alt="Docsy Logo" 
+                  className="h-20 w-auto object-contain block" 
+                />
+        </div>
     </div>
      <p className="text-[#ADB5BD] text-sm">Docs without the bulk. Write better together.</p>
     </div>
