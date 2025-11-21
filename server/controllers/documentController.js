@@ -63,23 +63,35 @@ export const getUserDocuments = async (req, res) => {
 
     const mongoUserId = user._id;
     console.log('🔍 Current user MongoDB _id:', mongoUserId.toString());
-    console.log('📄 Looking for documents where ownerId =', mongoUserId.toString());
+    console.log('🔍 Type of mongoUserId:', typeof mongoUserId, mongoUserId instanceof mongoose.Types.ObjectId);
+    
+    // Test all documents in the collection
+    const allDocuments = await Document.find({});
+    console.log('📊 Total documents in DB:', allDocuments.length);
+    
+    if (allDocuments.length > 0) {
+      allDocuments.forEach(doc => {
+        console.log('📄 Document:', doc._id.toString());
+        console.log('   - ownerId:', doc.ownerId);
+        console.log('   - ownerId type:', typeof doc.ownerId);
+        console.log('   - Match (strict):', doc.ownerId === mongoUserId);
+        console.log('   - Match (toString):', doc.ownerId?.toString() === mongoUserId.toString());
+        console.log('   - Match (string to string):', String(doc.ownerId) === String(mongoUserId));
+      });
+    }
 
-    // Step 2: Query documents - handle both ObjectId and String ownerIds
+    // Step 2: Try different query approaches
     const documents = await Document.find({
       $or: [
-        { ownerId: mongoUserId },  // ownerId as ObjectId
-        { ownerId: mongoUserId.toString() },  // ownerId as String
+        { ownerId: mongoUserId },  // ObjectId
+        { ownerId: mongoUserId.toString() },  // String
+        { ownerId: String(mongoUserId) },  // Explicit string conversion
         { 'collaborators.userId': mongoUserId }
       ]
     })
     .sort({ updatedAt: -1 });
 
-    console.log('Documents fetched:', documents.length);
-    
-    if (documents.length > 0) {
-      console.log('📋 Document ownerIds found:', documents.map(d => d.ownerId.toString()));
-    }
+    console.log('Documents fetched with $or query:', documents.length);
 
     const formattedDocs = documents.map(doc => {
       const isOwner = doc.ownerId?.toString() === mongoUserId.toString();
