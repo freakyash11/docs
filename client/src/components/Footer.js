@@ -6,21 +6,18 @@ const Footer = () => {
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid md:grid-cols-4 gap-8 mb-8">
           {/* Brand Column */}
-
-{/* Brand Column */}
-<div>
-      <div className="flex items-center gap-3 mb-4">
-    {/* We add a white background container (bg-white) with padding (p-2) and rounded corners (rounded-xl) */}
-       <div className="bg-white p-4 rounded-xl inline-block">
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-white p-3 rounded-xl inline-block shadow-sm">
                 <img 
                   src={logoSrc} 
                   alt="Docsy Logo" 
-                  className="h-20 w-auto object-contain block" 
+                  className="h-14 w-auto object-contain block" 
                 />
-        </div>
-    </div>
-     <p className="text-[#ADB5BD] text-sm">Docs without the bulk. Write better together.</p>
-    </div>
+              </div>
+            </div>
+            <p className="text-[#ADB5BD] text-sm">Docs without the bulk. Write better together.</p>
+          </div>
 
           {/* Links Columns */}
           <div>

@@ -390,7 +390,7 @@ const DocsyLanding = () => {
             <a href="/auth" className ="inline-block px-8 py-4 bg-white text-[#3A86FF] rounded-xl font-semibold hover:bg-gray-50 transition shadow-xl text-center no-underline">
               Get Started Free
             </a>
-            <button className="px-8 py-4 bg-transparent border-2 border-white text-black rounded-xl font-semibold hover:bg-white/10 transition">
+            <button className="px-8 py-4 bg-transparent border-2 border-white text-white rounded-xl font-semibold hover:bg-white/10 transition">
               Schedule Demo
             </button>
           </div>

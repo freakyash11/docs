@@ -4,24 +4,26 @@ export default function UserProfileHeader() {
   const { user, isSignedIn } = useUser();
   const logoSrc = '/logo.png'; 
 
-  // Reusable Logo Component with Tailwind classes
+  // Reusable Logo Component with white background container
   const Logo = ({ onClick }) => (
     <div 
       className={`flex items-center ${onClick ? 'cursor-pointer' : ''}`}
       onClick={onClick}
     >
-      <img 
-        src={logoSrc} 
-        alt="Docsy Logo" 
-        className="h-24 w-auto object-contain"
-      />
+      <div className="bg-white p-3 rounded-xl inline-block shadow-sm">
+        <img 
+          src={logoSrc} 
+          alt="Docsy Logo" 
+          className="h-16 w-auto object-contain block"
+        />
+      </div>
     </div>
   );
 
   // State: Not Signed In
   if (!isSignedIn) {
     return (
-      <div className="flex items-center justify-between px-8 py-4 bg-[#f8f9fa] border-b border-[#e9ecef]">
+      <div className="flex items-center justify-between px-8 py-3 bg-[#f8f9fa] border-b border-[#e9ecef]">
         <Logo />
         <a 
           href="/auth" 
@@ -35,7 +37,7 @@ export default function UserProfileHeader() {
 
   // State: Signed In
   return (
-    <div className="flex items-center justify-between px-8 py-4 bg-[#f8f9fa] border-b border-[#e9ecef]">
+    <div className="flex items-center justify-between px-8 py-3 bg-[#f8f9fa] border-b border-[#e9ecef]">
       {/* Logo links to dashboard when signed in */}
       <Logo onClick={() => window.location.href = '/dashboard'} />
       
@@ -47,7 +49,7 @@ export default function UserProfileHeader() {
         <UserButton 
           appearance={{
             elements: {
-              avatarBox: "w-10 h-10" // Tailwind classes work here in Clerk too
+              avatarBox: "w-10 h-10"
             }
           }}
           userProfileProps={{
