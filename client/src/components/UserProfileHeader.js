@@ -1,63 +1,66 @@
-import { UserButton, useUser } from '@clerk/clerk-react';
+import { SignIn } from '@clerk/clerk-react';
 
-export default function UserProfileHeader() {
-  const { user, isSignedIn } = useUser();
-  const logoSrc = '/logo.png'; 
-
-  // Reusable Logo Component with white background container
-  const Logo = ({ onClick }) => (
-    <div 
-      className={`flex items-center ${onClick ? 'cursor-pointer' : ''}`}
-      onClick={onClick}
-    >
-      <div className="bg-white p-3 rounded-xl inline-block shadow-sm">
-        <img 
-          src={logoSrc} 
-          alt="Docsy Logo" 
-          className="h-16 w-auto object-contain block"
-        />
-      </div>
-    </div>
-  );
-
-  // State: Not Signed In
-  if (!isSignedIn) {
-    return (
-      <div className="flex items-center justify-between px-8 py-3 bg-[#f8f9fa] border-b border-[#e9ecef]">
-        <Logo />
-        <a 
-          href="/auth" 
-          className="text-sm no-underline text-[#3A86FF] font-medium hover:text-blue-600 transition-colors"
-        >
-          Sign In
-        </a>
-      </div>
-    );
-  }
-
-  // State: Signed In
+export default function AuthPage() {
   return (
-    <div className="flex items-center justify-between px-8 py-3 bg-[#f8f9fa] border-b border-[#e9ecef]">
-      {/* Logo links to dashboard when signed in */}
-      <Logo onClick={() => window.location.href = '/dashboard'} />
-      
-      <div className="flex items-center gap-4">
-        <span className="text-sm text-[#666666]">
-          Welcome, {user?.firstName || user?.emailAddresses?.[0]?.emailAddress}
-        </span>
-        
-        <UserButton 
+    <div className="flex justify-center items-center min-h-screen bg-light-bg p-8">
+      <div>
+        <SignIn
+          routing="hash"
+          redirectUrl="/dashboard"
           appearance={{
+            variables: {
+              colorPrimary: '#3A86FF',
+              colorBackground: '#FFFFFF',
+              colorText: '#2D2D2D',
+              colorInputBackground: '#F1F3F5',
+              colorInputText: '#2D2D2D',
+              colorSuccess: '#6EEB83',
+              colorWarning: '#FFBE0B',
+              colorDanger: '#FF595E',
+              colorTextSecondary: '#6C757D',
+              colorNeutral: '#ADB5BD',
+              borderRadius: '0.5rem',
+            },
             elements: {
-              avatarBox: "w-10 h-10"
-            }
-          }}
-          userProfileProps={{
-            appearance: {
-              elements: {
-                rootBox: "w-full"
-              }
-            }
+              card: {
+                backgroundColor: '#FFFFFF',
+                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                border: '1px solid #D6D6D6',
+              },
+              formButtonPrimary: {
+                backgroundColor: '#3A86FF',
+                color: '#FFFFFF',
+                '&:hover': {
+                  backgroundColor: '#2A76EF',
+                },
+              },
+              formFieldInput: {
+                backgroundColor: '#F1F3F5',
+                borderColor: '#D6D6D6',
+                color: '#2D2D2D',
+                '&:focus': {
+                  borderColor: '#3A86FF',
+                },
+              },
+              footerActionLink: {
+                color: '#3A86FF',
+                '&:hover': {
+                  color: '#2A76EF',
+                },
+              },
+              formFieldLabel: {
+                color: '#2D2D2D',
+              },
+              identityPreviewText: {
+                color: '#6C757D',
+              },
+              dividerLine: {
+                backgroundColor: '#D6D6D6',
+              },
+              dividerText: {
+                color: '#6C757D',
+              },
+            },
           }}
         />
       </div>
