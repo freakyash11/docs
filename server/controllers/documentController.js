@@ -47,8 +47,8 @@ export const createDocument = async (req, res) => {
 
 export const getUserDocuments = async (req, res) => {
   try {
-    console.log('getUserDocuments called - userId (Clerk ID):', req.userId);  // Log Clerk ID
-    const userId = req.userId;  // Clerk ID (string)
+    console.log('getUserDocuments called - userId (Clerk ID):', req.userId);
+    const userId = req.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
@@ -61,32 +61,40 @@ export const getUserDocuments = async (req, res) => {
       return res.status(404).json({ error: 'User not found in database' });
     }
 
-    const mongoUserId = user._id;  // ObjectId for query
-    console.log('Mongo user found - _id:', mongoUserId.toString());  // Log ObjectId
+    const mongoUserId = user._id;
+    console.log('🔍 Current user MongoDB _id:', mongoUserId.toString());
+    console.log('📄 Looking for documents where ownerId =', mongoUserId.toString());
 
-    // Step 2: Query documents with ObjectId
+    // Step 2: Query documents - handle both ObjectId and String ownerIds
     const documents = await Document.find({
       $or: [
-        { ownerId: mongoUserId },  // Use ObjectId
-        { 'collaborators.userId': mongoUserId }  // Use ObjectId
+        { ownerId: mongoUserId },  // ownerId as ObjectId
+        { ownerId: mongoUserId.toString() },  // ownerId as String
+        { 'collaborators.userId': mongoUserId }
       ]
     })
-    .populate('ownerId', 'name email')
-    .populate('collaborators.userId', 'name email')
     .sort({ updatedAt: -1 });
 
-    console.log('Documents fetched:', documents.length);  // Should now be >0
+    console.log('Documents fetched:', documents.length);
+    
+    if (documents.length > 0) {
+      console.log('📋 Document ownerIds found:', documents.map(d => d.ownerId.toString()));
+    }
 
-    const formattedDocs = documents.map(doc => ({
-      id: doc._id,
-      title: doc.title,
-      owner: doc.ownerId?.name || 'Unknown',
-      isOwner: doc.ownerId?._id.toString() === mongoUserId.toString(),
-      collaborators: doc.collaborators?.length || 0,
-      isPublic: doc.isPublic,
-      createdAt: doc.createdAt,
-      updatedAt: doc.updatedAt
-    }));
+    const formattedDocs = documents.map(doc => {
+      const isOwner = doc.ownerId?.toString() === mongoUserId.toString();
+      
+      return {
+        id: doc._id,
+        title: doc.title,
+        owner: doc.ownerId?.name || 'Unknown',
+        isOwner: isOwner,
+        collaborators: doc.collaborators?.length || 0,
+        isPublic: doc.isPublic,
+        createdAt: doc.createdAt,
+        updatedAt: doc.updatedAt
+      };
+    });
 
     res.json({ documents: formattedDocs });
   } catch (error) {
