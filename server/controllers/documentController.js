@@ -54,34 +54,34 @@ export const getUserDocuments = async (req, res) => {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    // Step 1: Find MongoDB user by Clerk ID to get ObjectId
     const user = await User.findOne({ clerkId: userId });
     if (!user) {
       console.log('No Mongo user found for Clerk ID:', userId);
       return res.status(404).json({ error: 'User not found in database' });
     }
 
-    const mongoUserId = user._id;
-    console.log('🔍 Current user MongoDB _id:', mongoUserId.toString());
+    const mongoUserIdString = user._id.toString();
+    console.log('🔍 Current user MongoDB _id (string):', mongoUserIdString);
 
-    // Convert to new ObjectId to ensure proper comparison
-    const userObjectId = new mongoose.Types.ObjectId(mongoUserId);
-    
-    console.log('🔄 Converted ObjectId:', userObjectId.toString());
+    // Get ALL documents and filter in JavaScript
+    const allDocuments = await Document.find({})
+      .sort({ updatedAt: -1 });
 
-    // Step 2: Query documents using the converted ObjectId
-    const documents = await Document.find({
-      $or: [
-        { ownerId: userObjectId },
-        { 'collaborators.userId': userObjectId }
-      ]
-    })
-    .sort({ updatedAt: -1 });
+    console.log('📊 Total documents in DB:', allDocuments.length);
 
-    console.log('✅ Documents fetched:', documents.length);
+    // Filter documents where user is owner or collaborator
+    const documents = allDocuments.filter(doc => {
+      const isOwner = doc.ownerId?.toString() === mongoUserIdString;
+      const isCollaborator = doc.collaborators?.some(
+        collab => collab.userId?.toString() === mongoUserIdString
+      );
+      return isOwner || isCollaborator;
+    });
+
+    console.log('✅ Documents after filtering:', documents.length);
 
     const formattedDocs = documents.map(doc => {
-      const isOwner = doc.ownerId?.toString() === userObjectId.toString();
+      const isOwner = doc.ownerId?.toString() === mongoUserIdString;
       
       return {
         id: doc._id,
