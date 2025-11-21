@@ -44,8 +44,8 @@ const DocsyLanding = () => {
                 Docsy is a lightweight, real-time collaborative word processor designed for seamless teamwork. Docs without the bulk.
               </p>
               <div className="flex gap-4 pt-4">
-                <a href="/auth" class="inline-block px-8 py-4 bg-docsy-blue text-white rounded-xl font-semibold hover:bg-blue-600 transition shadow-lg shadow-docsy-blue/30 text-center no-underline">
-                            Start Writing
+                <a href="/auth" className="inline-block px-8 py-4 bg-[#3A86FF] text-white rounded-xl font-semibold hover:bg-blue-600 transition shadow-lg shadow-[#3A86FF]/30 text-center no-underline">
+                    Start Writing
                 </a>
                 <button className="px-8 py-4 bg-white border-2 border-[#2D2D2D] text-[#2D2D2D] rounded-xl font-semibold hover:bg-[#F7F9FC] transition">
                   Try Demo
@@ -387,10 +387,10 @@ const DocsyLanding = () => {
           <h2 className="text-4xl md:text-5xl font-bold mb-6">Ready to write better together?</h2>
           <p className="text-xl mb-8 opacity-90">Join thousands of teams already using Docsy to collaborate seamlessly.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="/auth" class="inline-block px-8 py-4 bg-white text-docsy-blue rounded-xl font-semibold hover:bg-gray-50 transition shadow-xl text-center no-underline">
+            <a href="/auth" className ="inline-block px-8 py-4 bg-white text-[#3A86FF] rounded-xl font-semibold hover:bg-gray-50 transition shadow-xl text-center no-underline">
               Get Started Free
             </a>
-            <button className="px-8 py-4 bg-transparent border-2 border-white text-white rounded-xl font-semibold hover:bg-white/10 transition">
+            <button className="px-8 py-4 bg-transparent border-2 border-white text-black rounded-xl font-semibold hover:bg-white/10 transition">
               Schedule Demo
             </button>
           </div>
