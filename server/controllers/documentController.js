@@ -47,43 +47,47 @@ export const createDocument = async (req, res) => {
 
 export const getUserDocuments = async (req, res) => {
   try {
-    console.log('getUserDocuments called - userId:', req.userId);
-    const userId = req.userId;
-    
+    console.log('getUserDocuments called - userId (Clerk ID):', req.userId);  // Log Clerk ID
+    const userId = req.userId;  // Clerk ID (string)
+
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    // Find MongoDB user ID by clerkId
+    // Step 1: Find MongoDB user by Clerk ID to get ObjectId
     const user = await User.findOne({ clerkId: userId });
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      console.log('No Mongo user found for Clerk ID:', userId);
+      return res.status(404).json({ error: 'User not found in database' });
     }
-    const mongoUserId = user._id;
 
+    const mongoUserId = user._id;  // ObjectId for query
+    console.log('Mongo user found - _id:', mongoUserId.toString());  // Log ObjectId
+
+    // Step 2: Query documents with ObjectId
     const documents = await Document.find({
       $or: [
-        { ownerId: mongoUserId },
-        { 'collaborators.userId': mongoUserId }
+        { ownerId: mongoUserId },  // Use ObjectId
+        { 'collaborators.userId': mongoUserId }  // Use ObjectId
       ]
     })
     .populate('ownerId', 'name email')
     .populate('collaborators.userId', 'name email')
     .sort({ updatedAt: -1 });
-    
-    console.log('Documents fetched:', documents.length);
-    
+
+    console.log('Documents fetched:', documents.length);  // Should now be >0
+
     const formattedDocs = documents.map(doc => ({
       id: doc._id,
       title: doc.title,
-      owner: doc.ownerId.name,
-      isOwner: doc.ownerId._id.toString() === mongoUserId.toString(),
-      collaborators: doc.collaborators.length,
+      owner: doc.ownerId?.name || 'Unknown',
+      isOwner: doc.ownerId?._id.toString() === mongoUserId.toString(),
+      collaborators: doc.collaborators?.length || 0,
       isPublic: doc.isPublic,
       createdAt: doc.createdAt,
       updatedAt: doc.updatedAt
     }));
-    
+
     res.json({ documents: formattedDocs });
   } catch (error) {
     console.error('Get documents detailed error:', error.message, 'Stack:', error.stack);
