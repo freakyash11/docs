@@ -4,7 +4,7 @@ import "quill/dist/quill.snow.css"
 import { io } from "socket.io-client"
 import { useParams, useNavigate } from "react-router-dom"
 import { useAuth } from '@clerk/clerk-react'
-import { Share2, Globe } from "lucide-react"
+import { Share2, Globe, FileText } from "lucide-react"
 import ShareModal from "./components/ShareModal"
 
 const SAVE_INTERVAL_MS = 2000
@@ -260,26 +260,122 @@ export default function TextEditor({ role = 'owner' }) {
   }, []);
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col bg-light-bg font-['Inter']">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        /* Quill Editor Custom Styling with Docsy Brand */
+        .ql-toolbar.ql-snow {
+          border: none !important;
+          background: #F1F3F5 !important;
+          border-radius: 8px !important;
+          box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05) !important;
+          padding: 12px 16px !important;
+          margin-bottom: 24px !important;
+          font-family: 'Inter', sans-serif !important;
+        }
+
+        .ql-container.ql-snow {
+          border: none !important;
+          font-family: 'Inter', sans-serif !important;
+          font-size: 16px !important;
+          line-height: 1.6 !important;
+          color: #2D2D2D !important;
+        }
+
+        .ql-editor {
+          padding: 40px 64px !important;
+          min-height: 800px !important;
+        }
+
+        .ql-editor h1 {
+          font-size: 2.5em !important;
+          font-weight: 700 !important;
+          margin-bottom: 0.5em !important;
+          color: #2D2D2D !important;
+        }
+
+        .ql-editor h2 {
+          font-size: 2em !important;
+          font-weight: 600 !important;
+          margin-top: 1em !important;
+          margin-bottom: 0.5em !important;
+        }
+
+        .ql-editor h3 {
+          font-size: 1.5em !important;
+          font-weight: 600 !important;
+        }
+
+        .ql-editor p {
+          margin-bottom: 1em !important;
+        }
+
+        .ql-snow .ql-stroke {
+          stroke: #6C757D !important;
+        }
+
+        .ql-snow .ql-fill {
+          fill: #6C757D !important;
+        }
+
+        .ql-snow .ql-picker-label {
+          color: #6C757D !important;
+        }
+
+        .ql-toolbar button:hover,
+        .ql-toolbar button:focus {
+          background: rgba(58, 134, 255, 0.1) !important;
+          border-radius: 4px !important;
+        }
+
+        .ql-toolbar button.ql-active {
+          background: rgba(58, 134, 255, 0.15) !important;
+          border-radius: 4px !important;
+        }
+
+        .ql-snow .ql-picker.ql-expanded .ql-picker-label {
+          border-color: #3A86FF !important;
+        }
+
+        /* Title Input Focus Effect */
+        .title-input:focus {
+          background: rgba(58, 134, 255, 0.05) !important;
+          outline: none !important;
+        }
+      `}</style>
+
       {/* Guest Banner */}
       {!isSignedIn && isPublicDoc && userRole === 'viewer' && (
         <div className="bg-blue-50 border-b border-blue-200 px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-blue-800">
             <Globe className="w-4 h-4" />
-            <span>You're viewing this document as a guest.</span>
+            <span className="font-medium">You're viewing this document as a guest.</span>
           </div>
           <button
             onClick={handleSignInRedirect}
-            className="px-4 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+            className="px-5 py-2 bg-docsy-blue text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
           >
             Sign in to collaborate
           </button>
         </div>
       )}
 
-      {/* Title Bar */}
-      <div className="px-6 py-4 border-b border-gray-200 bg-white flex items-center justify-between gap-3 shadow-sm">
-        <div className="flex items-center gap-3 flex-1">
+      {/* Header Bar */}
+      <div className="bg-white border-b border-gray-200 px-8 py-3 flex items-center justify-between min-h-[64px]">
+        {/* Left Section - Logo & Title */}
+        <div className="flex items-center gap-5 flex-1">
+          {/* Docsy Logo */}
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 bg-gradient-to-br from-docsy-blue to-soft-green rounded-lg flex items-center justify-center shadow-sm">
+              <FileText className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-lg font-bold text-slate-ink tracking-tight">
+              Docsy
+            </span>
+          </div>
+
+          {/* Title Input */}
           <input
             type="text"
             value={title}
@@ -291,40 +387,42 @@ export default function TextEditor({ role = 'owner' }) {
                 e.target.blur();
               }
             }}
-            className={`text-xl font-medium border-none outline-none px-3 py-2 rounded-md max-w-2xl cursor-text transition-colors ${
-              isEditingTitle ? 'bg-gray-100' : 'bg-transparent'
+            className={`title-input text-lg font-semibold text-slate-ink border-none px-3 py-1.5 rounded-md max-w-xl transition-all ${
+              isEditingTitle ? 'bg-input-field' : 'bg-transparent'
             }`}
             placeholder="Untitled Document"
             disabled={userRole === "viewer"}
           />
           
+          {/* Save Status */}
           {saveStatus === "saving" && (
-            <span className="text-sm text-gray-600 font-medium flex items-center gap-2">
-              <span className="inline-block w-3.5 h-3.5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm text-muted-text font-medium flex items-center gap-2">
+              <span className="inline-block w-3.5 h-3.5 border-2 border-muted-text border-t-transparent rounded-full animate-spin" />
               Saving...
             </span>
           )}
           {saveStatus === "saved" && (
-            <span className="text-sm text-green-600 font-medium flex items-center gap-1.5">
-              <span className="text-base">✔</span> Saved
+            <span className="text-sm text-soft-green font-medium flex items-center gap-1.5">
+              <span className="text-base">✓</span> Saved
             </span>
           )}
         </div>
         
+        {/* Right Section - Role Badge & Share Button */}
         <div className="flex items-center gap-3">
           {/* User Role Badge */}
           {userRole === "viewer" && (
-            <span className="px-3 py-1 bg-gray-100 text-gray-600 text-sm font-medium rounded-full">
+            <span className="px-4 py-1.5 bg-gray-100 text-muted-text text-sm font-medium rounded-full">
               View Only
             </span>
           )}
           {userRole === "editor" && (
-            <span className="px-3 py-1 bg-blue-100 text-blue-600 text-sm font-medium rounded-full">
+            <span className="px-4 py-1.5 bg-blue-50 text-docsy-blue text-sm font-medium rounded-full">
               Editor
             </span>
           )}
           {userRole === "owner" && (
-            <span className="px-3 py-1 bg-green-100 text-green-600 text-sm font-medium rounded-full">
+            <span className="px-4 py-1.5 bg-green-50 text-soft-green text-sm font-semibold rounded-full">
               Owner
             </span>
           )}
@@ -333,7 +431,7 @@ export default function TextEditor({ role = 'owner' }) {
           <button
             onClick={() => setIsShareModalOpen(true)}
             disabled={userRole === "viewer"}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="px-5 py-2 bg-docsy-blue text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 text-sm font-medium disabled:bg-cool-grey disabled:cursor-not-allowed shadow-sm"
           >
             <Share2 className="w-4 h-4" />
             Share
@@ -342,8 +440,11 @@ export default function TextEditor({ role = 'owner' }) {
       </div>
 
       {/* Editor Container */}
-      <div className="flex-1 overflow-auto bg-gray-50 flex justify-center py-8">
-        <div className="w-full max-w-4xl h-fit bg-white shadow-lg mx-4" ref={wrapperRef}></div>
+      <div className="flex-1 overflow-auto bg-light-bg flex justify-center pt-6 pb-12">
+        <div 
+          className="w-full max-w-5xl h-fit bg-white shadow-lg rounded-lg mx-6 overflow-hidden" 
+          ref={wrapperRef}
+        ></div>
       </div>
       
       <ShareModal
