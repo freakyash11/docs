@@ -97,8 +97,7 @@ export default function ShareModal({
         const token = await getToken();
         const inviteResponse = await fetch(`${backendUrl}/api/invite/documents/${documentId}?t=${Date.now()}`, {
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Cache-Control': 'no-cache'
+            'Authorization': `Bearer ${token}`
           }
         });
 
@@ -177,8 +176,7 @@ export default function ShareModal({
         const token = await getToken();
         const inviteResponse = await fetch(`${backendUrl}/api/invite/documents/${documentId}?t=${Date.now()}`, {
           headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Cache-Control': 'no-cache'
+            'Authorization': `Bearer ${token}`
           }
         });
         
