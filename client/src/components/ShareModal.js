@@ -118,15 +118,21 @@ export default function ShareModal({
         });
         
         // Filter invitations
+        const accepted = (inviteData.invitations || []).filter(
+          invite => invite.status === 'accepted'
+        );
+        
+        // Get list of emails that have already accepted
+        const acceptedEmails = new Set(accepted.map(inv => inv.email.toLowerCase()));
+        
+        // Only show pending invitations for emails that haven't been accepted yet
         const pending = (inviteData.invitations || []).filter(
           invite => {
             const isPending = invite.status === 'pending';
-            console.log(`${invite.email}: status="${invite.status}" isPending=${isPending}`);
-            return isPending;
+            const emailNotAccepted = !acceptedEmails.has(invite.email.toLowerCase());
+            console.log(`${invite.email}: status="${invite.status}" isPending=${isPending} emailNotAccepted=${emailNotAccepted}`);
+            return isPending && emailNotAccepted;
           }
-        );
-        const accepted = (inviteData.invitations || []).filter(
-          invite => invite.status === 'accepted'
         );
         
         console.log('⏳ Pending invitations:', pending.length, pending.map(i => i.email));
@@ -184,15 +190,21 @@ export default function ShareModal({
           const inviteData = await inviteResponse.json();
           console.log('📋 Fetched invitations:', inviteData.invitations);
           
-          const pending = (inviteData.invitations || []).filter(
-            invite => {
-              console.log(`Checking invite: ${invite.email}, status: ${invite.status}`);
-              return invite.status === 'pending';
-            }
-          );
-          
           const accepted = (inviteData.invitations || []).filter(
             invite => invite.status === 'accepted'
+          );
+          
+          // Get list of emails that have already accepted
+          const acceptedEmails = new Set(accepted.map(inv => inv.email.toLowerCase()));
+          
+          // Only show pending invitations for emails that haven't been accepted yet
+          const pending = (inviteData.invitations || []).filter(
+            invite => {
+              const isPending = invite.status === 'pending';
+              const emailNotAccepted = !acceptedEmails.has(invite.email.toLowerCase());
+              console.log(`Checking invite: ${invite.email}, status: ${invite.status}, isPending: ${isPending}, emailNotAccepted: ${emailNotAccepted}`);
+              return isPending && emailNotAccepted;
+            }
           );
           
           console.log('⏳ Filtered pending:', pending.length);

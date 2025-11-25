@@ -110,6 +110,26 @@ export const createInvitation = async (req, res) => {
       return res.status(400).json({ error: 'User is already a collaborator' });
     }
 
+    const existingInvitation = await Invitation.findOne({
+      docId: documentId,
+      email: email.toLowerCase(),
+      status: { $in: ['pending', 'accepted'] },
+      expiresAt: { $gt: new Date() } // Only check non-expired invitations
+    });
+
+    if (existingInvitation) {
+      if (existingInvitation.status === 'accepted') {
+        return res.status(400).json({ 
+          error: 'This user has already accepted an invitation to this document' 
+        });
+      }
+      if (existingInvitation.status === 'pending') {
+        return res.status(400).json({ 
+          error: 'A pending invitation already exists for this email. You can resend it from the share menu.' 
+        });
+      }
+    }
+    
     // Use the static method from your schema to create invitation
     const { invitation, plainToken } = await Invitation.createInvitation({
       docId: documentId,
