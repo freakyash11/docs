@@ -88,38 +88,57 @@ export default function ShareModal({
       setError('Failed to copy link to clipboard')
     }
   }
+
   useEffect(() => {
     const fetchDocumentData = async () => {
       if (!isOpen || !documentId) return;
       
       try {
         const token = await getToken();
-        const inviteResponse = await fetch(`${backendUrl}/api/invite/documents/${documentId}`, {
+        const inviteResponse = await fetch(`${backendUrl}/api/invite/documents/${documentId}?t=${Date.now()}`, {
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${token}`,
+            'Cache-Control': 'no-cache'
           }
         });
 
         if (!inviteResponse.ok) throw new Error('Failed to fetch invitations');
         
         const inviteData = await inviteResponse.json();
-        console.log('📬 All invitations:', inviteData);
+        console.log('📬 All invitations RAW:', JSON.stringify(inviteData, null, 2));
+        
+        // Log each invitation's details
+        (inviteData.invitations || []).forEach((invite, idx) => {
+          console.log(`Invitation ${idx}:`, {
+            email: invite.email,
+            status: invite.status,
+            statusType: typeof invite.status,
+            role: invite.role,
+            id: invite.id || invite._id
+          });
+        });
         
         // Filter invitations
         const pending = (inviteData.invitations || []).filter(
-          invite => invite.status === 'pending'
+          invite => {
+            const isPending = invite.status === 'pending';
+            console.log(`${invite.email}: status="${invite.status}" isPending=${isPending}`);
+            return isPending;
+          }
         );
         const accepted = (inviteData.invitations || []).filter(
           invite => invite.status === 'accepted'
         );
-        console.log('⏳ Pending invitations:', pending.length);
-        console.log('✅ Accepted invitations:', accepted.length);
+        
+        console.log('⏳ Pending invitations:', pending.length, pending.map(i => i.email));
+        console.log('✅ Accepted invitations:', accepted.length, accepted.map(i => i.email));
+        
         setPendingInvites(pending);
         
         // Build collaborators list from accepted invitations
         const collabList = accepted.map(invite => ({
           email: invite.email,
-          permission: invite.role, // role is 'viewer' or 'editor'
+          permission: invite.role,
           userId: invite.acceptedBy || null
         }));
         setCollaborators(collabList);
@@ -150,26 +169,36 @@ export default function ShareModal({
   useEffect(() => {
     if (!socket || !isOpen) return;
 
-    const handleCollaboratorAdded = async () => {
-      console.log('🔔 Collaborator added - refreshing lists');
+    const handleCollaboratorAdded = async (data) => {
+      console.log('🔔 Collaborator added - refreshing lists', data);
       
       // Refetch all invitations to update both pending and accepted lists
       try {
         const token = await getToken();
-        const inviteResponse = await fetch(`${backendUrl}/api/invite/documents/${documentId}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+        const inviteResponse = await fetch(`${backendUrl}/api/invite/documents/${documentId}?t=${Date.now()}`, {
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Cache-Control': 'no-cache'
+          }
         });
         
         if (inviteResponse.ok) {
           const inviteData = await inviteResponse.json();
+          console.log('📋 Fetched invitations:', inviteData.invitations);
           
           const pending = (inviteData.invitations || []).filter(
-            invite => invite.status === 'pending'
+            invite => {
+              console.log(`Checking invite: ${invite.email}, status: ${invite.status}`);
+              return invite.status === 'pending';
+            }
           );
           
           const accepted = (inviteData.invitations || []).filter(
             invite => invite.status === 'accepted'
           );
+          
+          console.log('⏳ Filtered pending:', pending.length);
+          console.log('✅ Filtered accepted:', accepted.length);
           
           setPendingInvites(pending);
           
