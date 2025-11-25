@@ -198,7 +198,21 @@ export default function TextEditor({ role = 'owner' }) {
       
       if (response.ok) {
         const data = await response.json();
-        setCollaborators(data || []);
+        // Filter for accepted invitations only and map to expected format
+        const acceptedCollaborators = (data.invitations || [])
+          .filter(inv => inv.status === 'accepted')
+          .map(inv => ({
+            id: inv.id,
+            email: inv.email,
+            name: inv.name || inv.email.split('@')[0], // Use email prefix if no name
+            permission: inv.role // 'viewer' or 'editor'
+          }));
+        setCollaborators(acceptedCollaborators);
+        
+        // Update public status from API response
+        if (data.document) {
+          setIsPublicDoc(data.document.isPublic);
+        }
       }
     } catch (error) {
       console.error('Error fetching collaborators:', error);
