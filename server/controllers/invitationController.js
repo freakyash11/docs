@@ -411,6 +411,25 @@ export const updateDocumentPermissions = async (req, res) => {
         permission: collab.permission || 'viewer'
       }));
       console.log('Updated collaborators:', document.collaborators.length);
+
+      // ===== ADD THIS: Also update the invitation roles =====
+      for (const collab of updates.collaborators) {
+        if (collab.email) {
+          // Update the invitation record to match the new role
+          const updateResult = await Invitation.updateOne(
+            {
+              docId: documentId,
+              email: collab.email.toLowerCase(),
+              status: 'accepted'
+            },
+            {
+              $set: { role: collab.permission }
+            }
+          );
+          console.log(`Updated invitation role for ${collab.email}:`, updateResult.modifiedCount);
+        }
+      }
+      // ===== END OF NEW CODE =====
     }
 
     await document.save();
